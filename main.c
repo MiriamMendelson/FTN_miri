@@ -58,18 +58,14 @@ bool convert_str_to_ip(char *str_ip, FTN_IPV4_ADDR * out_ip)
 	ret_val = inet_pton(AF_INET, str_ip, &(sa.sin_addr));
 	if (ret_val != 1)
 	{
+		printf("insert valid IPv4!\n");
 		return false;
 	}
 	
-	if (sa.sin_family != AF_INET)
-	{
-		return false;
-	}
-	
-	out_ip->ip_addr[0] = sa.sin_zero[0];
-	out_ip->ip_addr[1] = sa.sin_zero[1];
-	out_ip->ip_addr[2] = sa.sin_zero[2];
-	out_ip->ip_addr[3] = sa.sin_zero[3];
+	out_ip->ip_addr[0] = sa.sin_addr.s_addr & 0xff;
+	out_ip->ip_addr[1] = ((sa.sin_addr.s_addr) >> 8) & 0xff;
+	out_ip->ip_addr[2] = ((sa.sin_addr.s_addr) >> 16) & 0xff;
+	out_ip->ip_addr[3] = ((sa.sin_addr.s_addr) >> 24) & 0xff;
 	
 	return true;
 }
@@ -103,6 +99,7 @@ int main(int argc, char **argv)
 	if (!is_srv)
 	{
 		//run as client
+		printf("set as client!\n");
 		if (argc != 4)
 		{
 			printf("%s\n", CLIENT_PARAM_LIST_PRINT_HELP);
@@ -121,7 +118,7 @@ int main(int argc, char **argv)
 	}
 
 	//run as server
-
+	printf("set as server!\n");
 	if (argc != 5)
 	{
 		printf("%s\n", SRV_PARAM_LIST_PRINT_HELP);

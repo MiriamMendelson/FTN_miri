@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e
 
-gcc -static -Wall -Wextra -Werror -o ./out_bin/app ./*.c -L./out_bin -lFTN
+gcc -fsanitize=address -fsanitize=undefined -Wall -Wextra -Werror -o ./out_bin/app ./*.c -L./out_bin -lFTN -g
