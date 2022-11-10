@@ -33,7 +33,7 @@ FTN_RET_VAL FTN_recv(void * data_buffer, uint64_t data_buffer_size, uint64_t * o
 	return FTN_ERROR_NOT_IMPLEMENTED;
 }
 
-FTN_RET_VAL FTN_send(const void *data_buffer, uint64_t data_buffer_size, uint64_t dest_address_id)
+FTN_RET_VAL FTN_send(void *data_buffer, uint64_t data_buffer_size, uint64_t dest_address_id)
 {
 	UNUSED_PARAM(data_buffer);
 	UNUSED_PARAM(data_buffer_size);

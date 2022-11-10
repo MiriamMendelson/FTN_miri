@@ -94,6 +94,6 @@ FTN_RET_VAL FTN_recv(void * data_buffer, uint64_t data_buffer_size, uint64_t * o
  *
  *  on success return FTN_ERROR_SUCCESS
  */
-FTN_RET_VAL FTN_send(const void *data_buffer, uint64_t data_buffer_size, uint64_t dest_address_id);
+FTN_RET_VAL FTN_send(void *data_buffer, uint64_t data_buffer_size, uint64_t dest_address_id);
 
 #endif
