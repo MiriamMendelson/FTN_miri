@@ -67,7 +67,7 @@ int exchage_num_of_clients_to_other_app()
 			{
 				return test_ret_val;
 			}
-			if (msg_tmp != msg_to_send)
+			if (0 == memcmp(&msg_tmp, &msg_to_send, sizeof(msg_to_send)))
 			{
 				printf("init read back error!\n");
 				return TEST_RET_ERROR_SANITI_FAIL;
@@ -98,12 +98,12 @@ int exchage_num_of_clients_to_other_app()
 
 int update_test_global_vars()
 {
-	int ret_val = -1;
+	int test_ret_val = -1;
 	
-	ret_val = exchage_num_of_clients_to_other_app();
+	test_ret_val = exchage_num_of_clients_to_other_app();
 	if (test_ret_val != TEST_RET_SUCCESS)
 	{
-		return ret_val;
+		return test_ret_val;
 	}
 	
 	printf("my_client_id %lx\n", g_my_client_id);
@@ -124,10 +124,12 @@ uint32_t rand_range(uint32_t start, uint32_t end)
 int run_ring_test_loops(uint64_t * arr_pkg_order)
 {
 	FTN_RET_VAL ret_val = FTN_ERROR_UNKNONE;
+	int test_ret_val = -1;
 	uint64_t iter = 0;
 	uint64_t last_pos = 0;
 	uint64_t cur_pos = 0;
 	uint64_t next_pos = 1;
+	uint64_t x = 0;
 	
 	uint64_t pkt_data_buffer = 0;
 	
@@ -166,6 +168,8 @@ int run_ring_test_loops(uint64_t * arr_pkg_order)
 			return TEST_RET_ERROR_API_ERROR;
 		}
 	}
+	
+	return 0;
 }
 
 int run_ring_test()
@@ -182,7 +186,7 @@ int run_ring_test()
 	{
 		for (x = 0; x < RING_TEST_ORDER_LEN; ++x)
 		{
-			arr_pkg_order[x] = x % num_of_clients + 1;
+			arr_pkg_order[x] = x % g_num_of_clients + 1;
 		}
 		
 		for (x = 0; x < (RING_TEST_ORDER_LEN * 0x20); ++x)
@@ -232,7 +236,7 @@ int run_test()
 		return ret_val;
 	}
 	
-	switch (test_id)
+	switch (g_test_num)
 	{
 		case 0:
 			printf("exchnage done!\n");
@@ -243,7 +247,7 @@ int run_test()
 			return run_ring_test();
 			break;
 		default:
-			printf("test num %lx is not supported\n", test_id);
+			printf("test num %lx is not supported\n", g_test_num);
 			return 2;
 	}
 }
