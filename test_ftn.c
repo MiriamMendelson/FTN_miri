@@ -53,7 +53,7 @@ int exchage_num_of_clients_to_other_app()
 		msg_to_send.num_of_clients = g_num_of_clients;
 		msg_to_send.test_num = g_test_num;
 		
-		for (x = FIRST_CLIENT_ADDRESS_ID; x < g_num_of_clients; ++x)
+		for (x = FIRST_CLIENT_ADDRESS_ID; x < (g_num_of_clients + SERVER_ADDRESS_ID); ++x)
 		{
 			ret_val = FTN_send(&msg_to_send, sizeof(msg_to_send), x);
 			if (!FTN_SUCCESS(ret_val))
@@ -243,9 +243,10 @@ int run_test()
 			printf("success!\n");
 			return 0;
 			break;
-		case 1:
-			return run_ring_test();
-			break;
+		//  currently wip...
+		//  case 1:
+		//	return run_ring_test();
+		//	break;
 		default:
 			printf("test num %lx is not supported\n", g_test_num);
 			return 2;
@@ -270,7 +271,7 @@ int start_app_srv(uint64_t srv_port, uint64_t num_of_clients, uint64_t test_numb
 	g_num_of_clients = num_of_clients;
 	g_test_num = test_number;
 	
-	printf("%lx", test_number);
+	printf("run test %lx\n", test_number);
 	return run_test();
 }
 
