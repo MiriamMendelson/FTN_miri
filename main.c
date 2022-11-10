@@ -70,7 +70,7 @@ bool convert_str_to_ip(char *str_ip, FTN_IPV4_ADDR * out_ip)
 
 char * FIRST_PARAM_PRINT_HELP = "*.exe <srv/cli>";
 char * CLIENT_PARAM_LIST_PRINT_HELP = "*.exe <cli> <server_ip> <server_port>\nall in hex";
-char * SRV_PARAM_LIST_PRINT_HELP = "*.exe <srv> <srv_port> <num of clients> <test number>\nall in hex";
+char * SRV_PARAM_LIST_PRINT_HELP = "*.exe <srv> <srv_port> <num of clients> <test number>\nall in hex\nnum of clients includes the server!";
 
 int main(int argc, char **argv)
 {
