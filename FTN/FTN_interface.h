@@ -40,6 +40,7 @@ typedef struct FTN_IPV4_ADDR
  *  	num_of_nodes_in_network - (num of clients expected to connect + 1 for the server)
  *
  *	this function shuld block and not return until all clients will be connected and infrastructure is up and running!
+ *	on success return FTN_ERROR_SUCCESS
  */
 FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_network);
 
@@ -52,6 +53,7 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_netwo
  *  	out_my_address - A pointer to the variable that receives the address id of my current client
  *
  *	this function shuld block and not return until all other clients will be connected and infrastructure is up and running!
+ *	on success return FTN_ERROR_SUCCESS
  */
 FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint64_t * out_my_address);
 
@@ -59,7 +61,7 @@ FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint6
  *  FTN_recv
  *  recv pkt from network
  *  params:
- *      data_buffer - A pointer to the buffer that receives the data read from network
+ *		data_buffer - A pointer to the buffer that receives the data read from network
  *		data_buffer_size - The maximum number of bytes to be read (in bytes)
  *		out_pkt_len - A pointer to the variable that receives the number of bytes actually read into the data buffer (in bytes)
  *  	source_address_id - spesific source to recv from.
@@ -70,8 +72,10 @@ FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint6
  *
  *	NOTES:
  *		1. if pkt is bigger then data_buffer_size, must return error. set *out_pkt_len to expected pkt size
- *      2. if async == FALSE - and there is no pkts wating in the Q, this funtion shuld block and wait to recv pkts.
+ *		2. if async == FALSE - and there is no pkts wating in the Q, this funtion shuld block and wait to recv pkts.
  *		   if set to TRUE - this function shuld'n block, return success and set *out_pkt_len = 0
+ *
+ *	on success return FTN_ERROR_SUCCESS
  */
 FTN_RET_VAL FTN_recv(void * data_buffer, uint64_t data_buffer_size, uint64_t * out_pkt_len, uint64_t source_address_id, uint64_t * opt_out_source_address_id, bool async);
 
@@ -79,14 +83,16 @@ FTN_RET_VAL FTN_recv(void * data_buffer, uint64_t data_buffer_size, uint64_t * o
  *  FTN_send
  *  send pkt to network
  *  params:
- *      data_buffer - A pointer to the buffer containing the data to be send to other application
+ *		data_buffer - A pointer to the buffer containing the data to be send to other application
  *		data_buffer_size - The number of bytes to be send (in bytes)
  *  	dest_address_id - address id of the target app to send to
-							if set to 0 - this is broadcast
-							if set to other number: send to this client
+						if set to 0 - this is broadcast
+						if set to other number: send to this client
  *
  *	NOTES:
  *		1. this function block only is there is no room to queue this msg
+ *
+ *  on success return FTN_ERROR_SUCCESS
  */
 FTN_RET_VAL FTN_send(const void *data_buffer, uint64_t data_buffer_size, uint64_t dest_address_id);
 
