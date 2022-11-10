@@ -67,7 +67,8 @@ int exchage_num_of_clients_to_other_app()
 			{
 				return test_ret_val;
 			}
-			if (0 == memcmp(&msg_tmp, &msg_to_send, sizeof(msg_to_send)))
+			
+			if (0 != memcmp(&msg_tmp, &msg_to_send, sizeof(msg_to_send)))
 			{
 				printf("init read back error!\n");
 				return TEST_RET_ERROR_SANITI_FAIL;
@@ -82,7 +83,7 @@ int exchage_num_of_clients_to_other_app()
 			return test_ret_val;
 		}
 		
-		ret_val = FTN_send(&msg_to_send, sizeof(msg_to_send), x);
+		ret_val = FTN_send(&msg_to_send, sizeof(msg_to_send), SERVER_ADDRESS_ID);
 		if (!FTN_SUCCESS(ret_val))
 		{
 			printf("init send exchange error!\n");
