@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include "FTN_interface.h"
 
-FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_expected_clients)
+FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_network)
 {
 	printf("FTN_server_init is called! server_port %lx num_of_expected_clients %lx\n", server_port, num_of_expected_clients);
 	

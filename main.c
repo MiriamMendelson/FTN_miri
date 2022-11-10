@@ -31,7 +31,6 @@ bool hex2int(char *hex, uint64_t * out_val) {
 		}
 	}
 	
-	
     while (*hex) {
         // get current character then increment
         uint8_t byte = *hex++; 
@@ -47,7 +46,6 @@ bool hex2int(char *hex, uint64_t * out_val) {
 	*out_val = val;
     return true;
 }
-
 
 bool convert_str_to_ip(char *str_ip, FTN_IPV4_ADDR * out_ip)
 {

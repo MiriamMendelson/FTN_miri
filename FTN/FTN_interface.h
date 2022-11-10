@@ -12,19 +12,19 @@
  */
 
 
-/*
- *  FTN consts
- *  
- */
-#define MAX_DATA_BUFFER_LEN (0x280000000)
-#define MAX_NUMBER_OF_CLIENTS (0x500)
+//FTN consts
+#define MAX_DATA_BUFFER_LEN (0x1000)
+#define MAX_NUMBER_OF_CLIENTS (0x10)
 
 /*
  * the address id 0 is reserved for broadcast
  * server id is 1
  * valid client id is 2 - n (n is the number of connected clients)
+ * so num_of_nodes_in_network is the number of all clients including the server, and the last valid address
  */
 #define BROADCAST_ADDRESS_ID (0)
+#define SERVER_ADDRESS_ID (1)
+#define FIRST_CLIENT_ADDRESS_ID (2)
 #define INVALID_ADDRESS_ID (~0ULL)
 
 typedef struct FTN_IPV4_ADDR
@@ -37,11 +37,11 @@ typedef struct FTN_IPV4_ADDR
  *  Init FTN infrastructure as a server. must be called before any other API
  *  params:
  *  	server_port - server listening port number
- *  	num_of_expected_clients - num of clients expected to connect
+ *  	num_of_nodes_in_network - (num of clients expected to connect + 1 for the server)
  *
  *	this function shuld block and not return until all clients will be connected and infrastructure is up and running!
  */
-FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_expected_clients);
+FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_network);
 
 /*
  *  FTN_client_init
@@ -49,7 +49,7 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_expected_clien
  *  params:
  *  	server_str_ip - ip of the server app
  *  	server_port - server listening port to connect to
- *  	out_my_address - get the address id to me as a client
+ *  	out_my_address - A pointer to the variable that receives the address id of my current client
  *
  *	this function shuld block and not return until all other clients will be connected and infrastructure is up and running!
  */
