@@ -1,3 +1,17 @@
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <poll.h>
+#include <pthread.h>
+#include <errno.h>
+#include <stdint.h>
+#include <stdint.h>
+#include <string.h>
+#include <errno.h>
 #include "test_ftn.h"
 
 uint64_t g_my_client_id = INVALID_ADDRESS_ID;
@@ -8,6 +22,93 @@ uint64_t g_test_num = (~0ULL);
 #define TEST_RET_ERROR_PARAM_CHK (-2)
 #define TEST_RET_ERROR_API_ERROR (-3)
 #define TEST_RET_ERROR_SANITI_FAIL (-4)
+#define TEST_RET_ERROR_TIMEOUT (-5)
+
+#define MONITOR_SLEEP_TIME_IN_MS (5000)
+
+uint64_t g_num_of_send_pkts = 0;
+
+bool g_is_test_end = false;
+
+pthread_t monitor_thread_id = {0};
+
+uint32_t rand_range(uint32_t start, uint32_t end)
+{
+	return (rand() % (end - start)) + start;
+}
+
+uint32_t endiness_convert_32(uint32_t val)
+{
+	uint32_t swapped;
+	swapped = ((val>>24)&0xff); // move byte 3 to byte 0
+	swapped |= ((val<<8)&0xff0000); // move byte 1 to byte 2
+	swapped |= ((val>>8)&0xff00); // move byte 2 to byte 1
+	swapped |= ((val<<24)&0xff000000); // byte 0 to byte 3
+
+	return swapped;
+}
+
+/* msleep(): Sleep for the requested number of milliseconds. */
+int msleep(long msec)
+{
+	struct timespec ts;
+	int res;
+
+	if (msec < 0)
+	{
+		errno = EINVAL;
+		return -1;
+	}
+
+	ts.tv_sec = msec / 1000;
+	ts.tv_nsec = (msec % 1000) * 1000000;
+
+	do {
+		res = nanosleep(&ts, &ts);
+	} while (res && errno == EINTR);
+
+	return res;
+}
+
+uint32_t hash(void *buffer, uint64_t len)
+{
+	uint32_t hash = 5381;
+	int c;
+	uint64_t x = 0;
+	uint8_t *ptr = buffer;
+	
+	for (x = 0; x < len; ++x)
+	{
+		c = ptr[x];
+		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+	}
+
+	if (hash & 1)
+	{
+		hash ^= endiness_convert_32(hash);
+	}
+
+	return hash;
+}
+
+void build_pkt_data(char * addr, uint64_t data_buffer_len, uint64_t iteration_number)
+{
+	uint32_t sum_val = 0;
+	uint32_t x = 0;
+	uint32_t val_to_expected = 0;
+	
+	val_to_expected = iteration_number;
+
+	for (x = 0; x < data_buffer_len; x+=sizeof(uint32_t))
+	{
+		val_to_expected = hash(&val_to_expected, sizeof(val_to_expected));
+		*((uint32_t *)&(addr[x])) = val_to_expected;
+		
+		sum_val += val_to_expected;
+	}
+	
+	*((uint32_t *)&(addr[0])) = sum_val;
+}
 
 int recv_exacly_len(void * data_buffer, uint64_t data_buffer_size, uint64_t expected_src_address_id)
 {
@@ -23,11 +124,13 @@ int recv_exacly_len(void * data_buffer, uint64_t data_buffer_size, uint64_t expe
 	
 	if (get_pkt_len != data_buffer_size)
 	{
+		printf("wrong data buffer len!\n");
 		return TEST_RET_ERROR_SANITI_FAIL;
 	}
 	
 	if (pkt_source_address_id != expected_src_address_id)
 	{
+		printf("got pkt from the wrong source!\n");
 		return TEST_RET_ERROR_SANITI_FAIL;
 	}
 	
@@ -114,13 +217,16 @@ int update_test_global_vars()
 	return TEST_RET_SUCCESS;
 }
 
-uint32_t rand_range(uint32_t start, uint32_t end)
-{
-	return (rand() % (end - start)) + start;
-}
-
 #define RING_TEST_ORDER_LEN (MAX_NUMBER_OF_CLIENTS * 2)
 #define RING_TEST_RUN_LEN (0x10000000)
+#define RING_TEST_DATA_BUFFER_LEN (0x10)
+
+uint64_t g_arr_all_nodes_state[MAX_NUMBER_OF_CLIENTS] = {0};
+
+void ring_test_generate_pkt_data(void * data_buf, uint64_t seed)
+{
+	build_pkt_data(data_buf, RING_TEST_DATA_BUFFER_LEN, seed);
+}
 
 int run_ring_test_loops(uint64_t * arr_pkg_order)
 {
@@ -129,10 +235,16 @@ int run_ring_test_loops(uint64_t * arr_pkg_order)
 	uint64_t iter = 0;
 	uint64_t last_pos = 0;
 	uint64_t cur_pos = 0;
-	uint64_t next_pos = 1;
+	uint64_t next_pos = 0;
 	uint64_t x = 0;
 	
-	uint64_t pkt_data_buffer = 0;
+	uint64_t expected_pkt_data_buffer_seed = 0;
+	char expected_pkt_data_buffer_data[RING_TEST_DATA_BUFFER_LEN] = {};
+	char pkt_data_buffer[RING_TEST_DATA_BUFFER_LEN] = {};
+	
+	bool is_this_first_pkt = false;
+	
+	is_this_first_pkt = arr_pkg_order[0] == g_my_client_id;
 	
 	for (iter = 0; iter < RING_TEST_RUN_LEN; ++iter)
 	{
@@ -149,28 +261,49 @@ int run_ring_test_loops(uint64_t * arr_pkg_order)
 			}
 		}
 		
-		test_ret_val = recv_exacly_len(&pkt_data_buffer, sizeof(pkt_data_buffer), arr_pkg_order[last_pos]);
-		if (test_ret_val != TEST_RET_SUCCESS)
+		for (x = 0; x < RING_TEST_ORDER_LEN; ++x)
 		{
-			return test_ret_val;
+			if (arr_pkg_order[next_pos] != g_my_client_id)
+			{
+				break;
+			}
+			next_pos += 1;
+			next_pos = next_pos % RING_TEST_ORDER_LEN;
 		}
 		
-		if (last_pos * iter != pkt_data_buffer)
+		if (!is_this_first_pkt)
 		{
-			printf("pkt integrity error!\n");
-			return TEST_RET_ERROR_SANITI_FAIL;
+			expected_pkt_data_buffer_seed = g_arr_all_nodes_state[arr_pkg_order[last_pos]]++;
+			ring_test_generate_pkt_data(&expected_pkt_data_buffer_data, expected_pkt_data_buffer_seed);
+			
+			test_ret_val = recv_exacly_len(&pkt_data_buffer, sizeof(pkt_data_buffer), arr_pkg_order[last_pos]);
+			if (test_ret_val != TEST_RET_SUCCESS)
+			{
+				return test_ret_val;
+			}
+		
+			if (0 != memcmp(pkt_data_buffer, expected_pkt_data_buffer_data, sizeof(pkt_data_buffer)))
+			{
+				printf("pkt integrity error!\n");
+				return TEST_RET_ERROR_SANITI_FAIL;
+			}
 		}
 		
-		pkt_data_buffer = next_pos * iter;
-		ret_val = FTN_send(&arr_pkg_order, sizeof(arr_pkg_order), arr_pkg_order[next_pos]);
+		is_this_first_pkt = false;
+			
+		expected_pkt_data_buffer_seed = g_arr_all_nodes_state[arr_pkg_order[next_pos]]++;
+		ring_test_generate_pkt_data(&pkt_data_buffer, expected_pkt_data_buffer_seed);
+		ret_val = FTN_send(&pkt_data_buffer, sizeof(pkt_data_buffer), arr_pkg_order[next_pos]);
 		if (!FTN_SUCCESS(ret_val))
 		{
 			printf("cant send ring!\n");
 			return TEST_RET_ERROR_API_ERROR;
 		}
+		
+		g_num_of_send_pkts++;
 	}
 	
-	return 0;
+	return TEST_RET_SUCCESS;
 }
 
 int run_ring_test()
@@ -181,7 +314,7 @@ int run_ring_test()
 	uint64_t y = 0;
 	uint64_t z = 0;
 	uint64_t tmp = 0;
-	uint64_t arr_pkg_order[RING_TEST_ORDER_LEN] = {0};
+	uint64_t arr_pkg_order[RING_TEST_ORDER_LEN] = {};
 	
 	if (g_my_client_id == SERVER_ADDRESS_ID) //is server
 	{
@@ -223,9 +356,39 @@ int run_ring_test()
 	}
 	printf("\n");
 	
+	return run_ring_test_loops(arr_pkg_order);
+}
+
+void * monitor_thread(void * arg)
+{
+	uint64_t cur_num_of_pkt = 0;
+	uint64_t last_num_of_pkt = 0;
+	uint64_t pkt_diff = 0;
+	uint64_t pkt_per_sec = 0;
 	
+	UNUSED_PARAM(arg);
 	
-	return 0;
+	msleep(MONITOR_SLEEP_TIME_IN_MS);
+	
+	while(!g_is_test_end)
+	{
+		cur_num_of_pkt = g_num_of_send_pkts;
+		
+		if (cur_num_of_pkt == last_num_of_pkt)
+		{
+			printf("probably there is deadlock!\n");
+			exit(TEST_RET_ERROR_TIMEOUT);
+		}
+		
+		pkt_diff = cur_num_of_pkt - last_num_of_pkt;
+		pkt_per_sec = pkt_diff / (MONITOR_SLEEP_TIME_IN_MS / 1000);
+		printf("address_id 0x%lx iteration_per_second 0x%lx\n", g_my_client_id, pkt_per_sec);
+		
+		last_num_of_pkt = cur_num_of_pkt;
+		msleep(MONITOR_SLEEP_TIME_IN_MS);
+	}
+	
+	return NULL;
 }
 
 int run_test()
@@ -237,20 +400,29 @@ int run_test()
 		return ret_val;
 	}
 	
+	pthread_create(&monitor_thread_id, NULL, &monitor_thread, NULL);
+	
 	switch (g_test_num)
 	{
 		case 0:
 			printf("exchnage done!\n");
 			printf("success!\n");
+			g_is_test_end = true;
 			return 0;
 			break;
-		//  currently wip...
-		//  case 1:
-		//	return run_ring_test();
-		//	break;
+		
+		case 1:
+			ret_val = run_ring_test();
+			if (ret_val != TEST_RET_SUCCESS)
+			{
+				printf("test return error! %x\n", ret_val);
+			}
+			g_is_test_end = true;
+			return ret_val;
+			break;
 		default:
 			printf("test num %lx is not supported\n", g_test_num);
-			return 2;
+			return TEST_RET_ERROR_PARAM_CHK;
 	}
 }
 
@@ -261,11 +433,17 @@ int start_app_srv(uint64_t srv_port, uint64_t num_of_clients, uint64_t test_numb
 	srand(time(0));
 	rand();
 	
+	if ((num_of_clients < FIRST_CLIENT_ADDRESS_ID) || (num_of_clients >= MAX_NUMBER_OF_CLIENTS))
+	{
+		printf("wrong number of nodes!\n");
+		return TEST_RET_ERROR_PARAM_CHK;
+	}
+
 	ret_val = FTN_server_init(srv_port, num_of_clients);
 	if (!FTN_SUCCESS(ret_val))
 	{
 		printf("server init error!\n");
-		return 2;
+		return TEST_RET_ERROR_API_ERROR;
 	}
 	
 	g_my_client_id = SERVER_ADDRESS_ID;
@@ -287,7 +465,7 @@ int start_app_client(FTN_IPV4_ADDR srv_ip, uint64_t srv_port)
 	if (!FTN_SUCCESS(ret_val))
 	{
 		printf("client init error!\n");
-		return 2;
+		return TEST_RET_ERROR_API_ERROR;
 	}
 	
 	return run_test();
