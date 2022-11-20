@@ -24,6 +24,6 @@ bool init_rb_arr(ring_buffer *buff, uint64_t len);
 bool empty(ring_buffer *buff);
 bool insert(ring_buffer *buff, char *new_msg,uint64_t len);
 bool extract(ring_buffer *buff, uint32_t *out_index);
-bool peek(ring_buffer *buff, msg *out_msg);
-// uint64_t extract_first(ring_buffer *buff, uint64_t num_of_rings, msg *out_msg);
+bool peek(ring_buffer *buff, uint32_t *out_index);
+bool extract_first(ring_buffer *buff, uint64_t num_of_rings, uint32_t *out_cli_index);
 #endif

@@ -323,7 +323,7 @@ int run_ring_test()
 		{
 			arr_pkg_order[x] = x % g_num_of_clients + 1;
 		}
-		
+		//mess up the ARR
 		for (x = 0; x < (RING_TEST_ORDER_LEN * 0x20); ++x)
 		{
 			y = rand_range(0, RING_TEST_ORDER_LEN);
@@ -341,7 +341,7 @@ int run_ring_test()
 			return TEST_RET_ERROR_API_ERROR;
 		}
 	}
-	else
+	else	//it is client
 	{
 		test_ret_val = recv_exacly_len(arr_pkg_order, sizeof(arr_pkg_order), SERVER_ADDRESS_ID);
 		if (test_ret_val != TEST_RET_SUCCESS)
@@ -350,7 +350,7 @@ int run_ring_test()
 		}
 	}
 	
-	printf("order is: ");
+	printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\norder is: ");
 	for (x = 0; x < RING_TEST_ORDER_LEN; ++x)
 	{
 		printf("%lx ", arr_pkg_order[x]);
@@ -377,7 +377,7 @@ void * monitor_thread(void * arg)
 		
 		if (cur_num_of_pkt == last_num_of_pkt)
 		{
-			printf("probably there is deadlock!\n");
+			printf("---------------------------------------------------------------------------------------------\nprobably there is deadlock!\n");
 			exit(TEST_RET_ERROR_TIMEOUT);
 		}
 		

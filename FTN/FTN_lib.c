@@ -8,20 +8,23 @@ ring_buffer ring_buffs[MAX_NUMBER_OF_CLIENTS];
 
 pthread_t rcv_handler_thread;
 pthread_mutex_t lock;
+bool first_call = true;
+
+pthread_mutex_t recv_thread_start;
 
 bool is_same_addr(struct sockaddr_in *src, END_POINT *ep)
 {
 	bool res;
 	char str[INET_ADDRSTRLEN];
-	printf("src port: %d , and cilents port is %ld\n", src->sin_port, ep->port);
+	// printf("src port: %d , and cilents port is %ld\n", src->sin_port, ep->port);
 
 	res = (src->sin_port == ep->port);
-	printf("is equal? %d\n", res);
+	// printf("is equal? %d\n", res);
 	inet_ntop(AF_INET, &(((struct sockaddr_in *)src)->sin_addr),
 			  str, INET_ADDRSTRLEN);
-	printf("src ip is :%s, and clieants: %s\n", str, ep->ip_addr);
+	// printf("src ip is :%s, and clieants: %s\n", str, ep->ip_addr);
 	res &= (strcmp(ep->ip_addr, str) == 0);
-	printf("is equal? %d\n", res);
+	// printf("is equal? %d\n", res);
 
 	return res;
 }
@@ -29,27 +32,33 @@ void *recv_and_insert_from_OS_to_ring(void *param)
 {
 	printf("~~~~~~~~~~~~~thread called~~~~~~~~~~~~~\n");
 	UNUSED_PARAM(param);
-	int x = 0;
-	while (x < 1)
+	while (1)
 	{
-		x++;
 		struct sockaddr_in from;
-		// msg msg_to_insert;
 		char msg_to_insert[MAX_DATA_BUFFER_LEN];
 		uint64_t actual_len;
 		actual_len = recvfrom(SOCKFD, &(msg_to_insert[0]), MAX_DATA_BUFFER_LEN, 0, (struct sockaddr *)&from, &SOCKADDR_LEN);
-		printf("thread after copying data: %s, actual_len: %ld\n", msg_to_insert, actual_len);
-		for (uint64_t i = SERVER_ADDRESS_ID; i < g_num_of_cli; i++)
+		if (!first_call)
 		{
-			printf("i is :%ld\n", i);
+			pthread_mutex_lock(&lock);
+		}
+		else
+		{
+			first_call = false;
+		}
+		// printf("thread after copying data: %s, actual_len: %ld\n", msg_to_insert, actual_len);
+		for (uint64_t i = SERVER_ADDRESS_ID; i <= g_num_of_cli; i++)
+		{
+			// printf("i is :%ld\n", i);
 			if (is_same_addr(&from, &(CLIENTS[i])))
 			{
 				insert(&ring_buffs[i], &msg_to_insert[0], actual_len);
-				printf("as u can c data: %s, data len: %ld, seq_num: %ld\n", ring_buffs[i].msgs[0].msg, ring_buffs[i].msgs[0].len, ring_buffs[i].msgs[0].seq_num);
+				// printf("as u can c data: %s, data len: %ld, seq_num: %ld\n", ring_buffs[i].msgs[0].msg, ring_buffs[i].msgs[0].len, ring_buffs[i].msgs[0].seq_num);
+				pthread_mutex_unlock(&lock);
 				break;
 			}
+			// printf("done %ld itaration of %ld\n", i, g_num_of_cli);
 		}
-		pthread_mutex_unlock(&lock);
 	}
 	return NULL;
 }
@@ -83,6 +92,7 @@ void get_my_ip()
 }
 bool thread_start()
 {
+	// pthread_mutex_init();
 	bool ret_val = true;
 	ret_val &= (pthread_mutex_lock(&lock) == 0);
 	ret_val &= (pthread_create(&rcv_handler_thread, NULL,
@@ -97,7 +107,7 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_netwo
 	struct sockaddr_in from;
 	unsigned int addrlen = sizeof(from);
 	char data_received[sizeof(CONN_REQ)];
-	g_num_of_cli = num_of_nodes_in_network;
+	g_num_of_cli = num_of_nodes_in_network + SERVER_ADDRESS_ID;
 	SOCKFD = create_socket(server_port, &server);
 
 	if (num_of_nodes_in_network > MAX_NUMBER_OF_CLIENTS)
@@ -106,7 +116,7 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_netwo
 		g_num_of_cli = MAX_NUMBER_OF_CLIENTS;
 	}
 
-	for (x = FIRST_CLIENT_ADDRESS_ID; x <= g_num_of_cli; x++)
+	for (x = FIRST_CLIENT_ADDRESS_ID; x < g_num_of_cli; x++)
 	{
 		printf("--------waiting for cli---------\n");
 		recvfrom(SOCKFD, &data_received, sizeof(CONN_REQ), 0, (struct sockaddr *)&from, &addrlen);
@@ -117,23 +127,25 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_netwo
 	}
 	printf("********got all of them*********\n");
 
-	for (x = FIRST_CLIENT_ADDRESS_ID; x <= g_num_of_cli; x++)
+	for (x = FIRST_CLIENT_ADDRESS_ID; x < g_num_of_cli; x++)
 	{
 		CLIENTS[GET_PRIVATE_ID].id = x;
 
 		struct sockaddr_in cli_addr = {AF_INET, CLIENTS[x].port, {inet_addr(CLIENTS[x].ip_addr)}, {0}};
-		if (sendto(SOCKFD, CLIENTS, CLI_ARR_SIZE(g_num_of_cli), // removed (+SERVER_FIRST_INDEX)
+		if (sendto(SOCKFD, CLIENTS, CLI_ARR_SIZE(g_num_of_cli),
 				   0, (struct sockaddr *)&cli_addr, sizeof(cli_addr)) == -1)
 		{
 			return FTN_ERROR_NETWORK_FAILURE;
 		}
 	}
+	CLIENTS[GET_PRIVATE_ID].id = SERVER_ADDRESS_ID; // set our dear serves ID back to original
 
 	if (!init_rb_arr(ring_buffs, g_num_of_cli))
 	{
 		printf("round buffs init error\n");
 		return FTN_ERROR_UNKNONE;
 	}
+	printf("server is saying: num o cli: %ld and they all have RB's. my privat id is: %d\n", g_num_of_cli, CLIENTS[GET_PRIVATE_ID].id);
 
 	if (!thread_start())
 	{
@@ -141,7 +153,7 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_netwo
 		return FTN_ERROR_UNKNONE;
 	}
 
-	printf("FTN_server_init is finished! server_port %lx num_of_expected_clients %lx\n", server_port, g_num_of_cli);
+	printf("FTN_server_init is finished! server_port %lx.\n", server_port);
 
 	return FTN_ERROR_SUCCESS;
 }
@@ -177,7 +189,7 @@ FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint6
 		return FTN_ERROR_NETWORK_FAILURE;
 	}
 
-	g_num_of_cli = num_of_received_bytes / sizeof(END_POINT) + SERVER_ADDRESS_ID;
+	g_num_of_cli = num_of_received_bytes / sizeof(END_POINT);
 
 	*out_my_address = CLIENTS[GET_PRIVATE_ID].id;
 
@@ -189,6 +201,7 @@ FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint6
 		printf("round buffs init error\n");
 		return FTN_ERROR_UNKNONE;
 	}
+	printf("-----sec head %ld, tail %ld, num o cli: %ld after isialization\n", ring_buffs[2].head, ring_buffs[2].tail, g_num_of_cli);
 
 	if (!thread_start())
 	{
@@ -206,53 +219,59 @@ FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint6
 FTN_RET_VAL FTN_recv(void *data_buffer, uint64_t data_buffer_size, uint64_t *out_pkt_len,
 					 uint64_t source_address_id, uint64_t *opt_out_source_address_id, bool async)
 {
-	printf("FTN_recv wait for lock\n");
+	// printf("<<<<< FTN_recv is called! source_address_id: %lx, my id: %d, is aync: %d.\n", source_address_id, CLIENTS[GET_PRIVATE_ID].id, async);
+	// printf(" FTN_recv wait for lock :(\n");
 	pthread_mutex_lock(&lock);
+	// printf(" FTN_recv done waiting for lock :)\n");
+
 	uint32_t out_index;
+	uint32_t cli_index;
 	bool ret_val;
-	printf("<<<<< FTN_recv is called! source_address_id: %lx, my id: %d.\n", source_address_id, CLIENTS[GET_PRIVATE_ID].id);
 	if (0 != source_address_id)
 	{
-		if (empty(&ring_buffs[source_address_id]))
+		if (empty(&ring_buffs[source_address_id]) && async)
 		{
-			printf("EMPTYYY, head: %ld, tail: %ld\n", ring_buffs[source_address_id].head, ring_buffs[source_address_id].tail);
-			if (async)
-			{
-				*out_pkt_len = 0;
-				UNUSED_PARAM(*opt_out_source_address_id);
-				return FTN_ERROR_SUCCESS;
-			}
-			else
-			{
-				// waiting = chikayon😁👌;
-			}
+			// printf("EMPTYYY and im async done my trail, head: %ld, tail: %ld\n", ring_buffs[source_address_id].head, ring_buffs[source_address_id].tail);
+			*out_pkt_len = 0;
+			UNUSED_PARAM(*opt_out_source_address_id);
+			pthread_mutex_unlock(&lock);
+			return FTN_ERROR_SUCCESS;
 		}
-		else
+		while (empty(&ring_buffs[source_address_id]))
 		{
-			ret_val = extract(&ring_buffs[source_address_id], &out_index);
+			pthread_mutex_unlock(&lock);
+			pthread_mutex_lock(&lock);
+		}
+		// printf("out of busy waite!\n");
+		ret_val = extract(&ring_buffs[source_address_id], &out_index);
+		if (ret_val)
+		{
+			// printf("FTN_recv: extracted data len is: %ld\n", ring_buffs[source_address_id].msgs[out_index].len);
+			*out_pkt_len = min(data_buffer_size, ring_buffs[source_address_id].msgs[out_index].len);
+			ret_val = (memcpy(data_buffer, ring_buffs[source_address_id].msgs[out_index].msg, *out_pkt_len) != NULL);
+		}
+	}
+	else // get any, return oldest message
+	{
+		ret_val = extract_first(ring_buffs, g_num_of_cli, &cli_index);
+		if (ret_val)
+		{
+			ret_val = extract(&ring_buffs[cli_index], &out_index);
 			if (ret_val)
 			{
-				*out_pkt_len = min(data_buffer_size, ring_buffs[source_address_id].msgs[out_index].len);
-				ret_val = (memcpy(data_buffer, ring_buffs[source_address_id].msgs[out_index].msg, *out_pkt_len) != NULL);
+				*out_pkt_len = min(data_buffer_size, ring_buffs[cli_index].msgs[out_index].len);
+				ret_val = (memcpy(data_buffer, ring_buffs[cli_index].msgs[out_index].msg, *out_pkt_len) != NULL);
 			}
 		}
 	}
-	else // get any -oldest message
-	{
-		// *opt_out_source_address_id = extract_first(ring_buffs, g_num_of_cli, &out_msg);
-		// if (*opt_out_source_address_id)
-		// {
-		// 	*out_pkt_len = min(data_buffer_size, out_msg.len);
-		// 	ret_val = (memcpy(data_buffer, out_msg.msg, *out_pkt_len) != NULL);
-		// }
-	}
+	pthread_mutex_unlock(&lock);
 
 	if (NULL != opt_out_source_address_id)
 	{
-		(*opt_out_source_address_id) = source_address_id;
+		(*opt_out_source_address_id) = source_address_id == 0 ? cli_index : source_address_id;
 	}
 
-	printf("FTN_recv is finished! source id: %lx, async: %x\n", source_address_id, async);
+	// printf("FTN_recv is finished! source id: %lx, async: %x\n", source_address_id, async);
 
 	return FTN_ERROR_SUCCESS;
 }
@@ -261,12 +280,12 @@ FTN_RET_VAL FTN_send(void *data_buffer, uint64_t data_buffer_size, uint64_t dest
 {
 	struct sockaddr_in dest_client;
 	uint64_t x;
-	printf(">>>>> FTN_send is called! dest_address_id: %lx\n", dest_address_id);
-	printf("data as sendingggg is: %s, data_buffer_size: %ld\n", (char *)data_buffer, data_buffer_size);
+	// printf(">>>>> FTN_send is called! dest_address_id: %lx, data_buffer_size: %ld\n", dest_address_id, data_buffer_size);
 	// if(dest is in same com) use shared memory
 	// else:
 	if (dest_address_id > MAX_NUMBER_OF_CLIENTS)
 	{
+		// printf("dest_address_id > MAX_NUMBER_OF_CLIENTS!! \n");
 		return FTN_ERROR_ARGUMENTS_ERROR;
 	}
 
@@ -286,13 +305,11 @@ FTN_RET_VAL FTN_send(void *data_buffer, uint64_t data_buffer_size, uint64_t dest
 
 	// TODO move to outer func
 	dest_client = (struct sockaddr_in){AF_INET, CLIENTS[dest_address_id].port, {inet_addr(CLIENTS[dest_address_id].ip_addr)}, {0}};
-
 	if (sendto(SOCKFD, data_buffer, data_buffer_size, 0, (struct sockaddr *)&dest_client, sizeof(dest_client)) == -1)
 	{
+		printf("sendto ho nooooo\n");
 		return FTN_ERROR_NETWORK_FAILURE;
 	}
-
+	// printf("i've send to IP: %s, PORT: %ld\n", CLIENTS[dest_address_id].ip_addr, CLIENTS[dest_address_id].port);
 	return FTN_ERROR_SUCCESS;
 }
-
-// the insertion buffers to rings
