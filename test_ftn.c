@@ -124,7 +124,7 @@ int recv_exacly_len(void * data_buffer, uint64_t data_buffer_size, uint64_t expe
 	
 	if (get_pkt_len != data_buffer_size)
 	{
-		printf("wrong data buffer len!\n");
+		printf("wrong data buffer len! get_pkt_len:%ld != data_buffer_size: %ld\n", get_pkt_len, data_buffer_size);
 		return TEST_RET_ERROR_SANITI_FAIL;
 	}
 	
@@ -158,6 +158,7 @@ int exchage_num_of_clients_to_other_app()
 		
 		for (x = FIRST_CLIENT_ADDRESS_ID; x < (g_num_of_clients + SERVER_ADDRESS_ID); ++x)
 		{
+			printf("test--- sending size %ld\n",sizeof(msg_to_send));
 			ret_val = FTN_send(&msg_to_send, sizeof(msg_to_send), x);
 			if (!FTN_SUCCESS(ret_val))
 			{

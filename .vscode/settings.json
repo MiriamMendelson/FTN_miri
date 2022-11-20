@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "ring_buffer.h": "c",
+        "ftn_interface.h": "c",
+        "socket_interface.h": "c",
+        "ftn_common.h": "c"
+    }
+}
