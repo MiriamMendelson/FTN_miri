@@ -41,7 +41,7 @@ typedef struct FTN_IPV4_ADDR
 typedef struct END_POINT
 {
 	uint8_t id;
-	char ip_addr[INET_ADDRSTRLEN];
+	FTN_IPV4_ADDR ip;
 	uint64_t port;
 } END_POINT;
 

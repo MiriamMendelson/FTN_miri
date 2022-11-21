@@ -51,26 +51,17 @@ int create_socket(uint64_t port, struct sockaddr_in **out_addr)
     return sockfd;
 }
 
-struct sockaddr_in declare_server(char *server_ip, uint64_t server_port)
+struct sockaddr_in declare_server(uint32_t server_ip, uint64_t server_port)
 {
-    printf("servers ip: %s\n", server_ip);
+    printf("servers ip: %d\n", server_ip);
 
-    struct sockaddr_in server = {AF_INET, htons(server_port), {inet_addr(server_ip)}, {0}};
+    struct sockaddr_in server = {AF_INET, htons(server_port), {server_ip}, {0}};
     return server;
 }
 
-bool convert_ip_to_str(FTN_IPV4_ADDR ip, char *out_str_ip)
+bool init_addr(struct sockaddr_in *addr, int port, uint8_t *ip_addr)
 {
-    char temp[INET_ADDRSTRLEN];
-
-    if (out_str_ip == NULL)
-    {
-        printf("allocate error!\n");
-        return false;
-    }
-
-    snprintf(temp, sizeof(temp), "%d.%d.%d.%d", ip.ip_addr[0], ip.ip_addr[1], ip.ip_addr[2], ip.ip_addr[3]);
-
-    strcpy(out_str_ip, temp);
-    return true;
+    addr->sin_family = AF_INET;
+    addr->sin_port = port;
+    return (NULL != memcpy(&addr->sin_addr, ip_addr, sizeof(uint32_t)));
 }
