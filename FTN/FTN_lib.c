@@ -30,7 +30,6 @@ bool is_same_addr(struct sockaddr_in *src, END_POINT *ep)
 }
 void *recv_and_insert_from_OS_to_ring(void *param)
 {
-	printf("~~~~~~~~~~~~~thread called~~~~~~~~~~~~~\n");
 	UNUSED_PARAM(param);
 	while (1)
 	{
@@ -46,18 +45,15 @@ void *recv_and_insert_from_OS_to_ring(void *param)
 		{
 			first_call = false;
 		}
-		// printf("thread after copying data: %s, actual_len: %ld\n", msg_to_insert, actual_len);
 		for (uint64_t i = SERVER_ADDRESS_ID; i <= g_num_of_cli; i++)
 		{
-			// printf("i is :%ld\n", i);
 			if (is_same_addr(&from, &(CLIENTS[i])))
 			{
 				insert(&ring_buffs[i], &msg_to_insert[0], actual_len);
-				// printf("as u can c data: %s, data len: %ld, seq_num: %ld\n", ring_buffs[i].msgs[0].msg, ring_buffs[i].msgs[0].len, ring_buffs[i].msgs[0].seq_num);
+
 				pthread_mutex_unlock(&lock);
 				break;
 			}
-			// printf("done %ld itaration of %ld\n", i, g_num_of_cli);
 		}
 	}
 	return NULL;
@@ -97,6 +93,7 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_netwo
 		g_num_of_cli = MAX_NUMBER_OF_CLIENTS;
 	}
 
+	printf("--------waiting for clients---------\n");
 	for (x = FIRST_CLIENT_ADDRESS_ID; x < g_num_of_cli; x++)
 	{
 		printf("--------waiting for cli---------\n");
@@ -106,7 +103,7 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_netwo
 			store_endpoint(x, &cli_addr);
 		}
 	}
-	printf("********got all of them*********\n");
+	printf("********got all of the clients*********\n");
 
 	for (x = FIRST_CLIENT_ADDRESS_ID; x < g_num_of_cli; x++)
 	{
@@ -217,7 +214,6 @@ FTN_RET_VAL FTN_recv(void *data_buffer, uint64_t data_buffer_size, uint64_t *out
 			pthread_mutex_unlock(&lock);
 			pthread_mutex_lock(&lock);
 		}
-
 		ret_val = extract(&ring_buffs[source_address_id], &out_index);
 		if (ret_val)
 		{

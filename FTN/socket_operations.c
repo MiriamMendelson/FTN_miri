@@ -1,25 +1,6 @@
 #include "./socket_interface.h"
 
-// uint64_t init_socket(FTN_IPV4_ADDR ip, uint64_t port)
-// {
-//     int64_t sockfd;
 
-//     struct sockaddr_in new_socket = {AF_INET, port, {inet_aton("63.161.169.137", &new_socket.sin_addr)}, {0}};
-
-//     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-//     if (sockfd == -1)
-//     {
-//         perror("socket creation failed");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     if (bind(sockfd, (struct sockaddr *)&new_socket, sizeof(new_socket)) == -1)
-//     {
-//         perror("bind");
-//         exit(1);
-//     }
-//     return 1;
-// }
 int create_socket(uint64_t port, struct sockaddr_in **out_addr)
 {
     int32_t sockfd;
@@ -33,7 +14,7 @@ int create_socket(uint64_t port, struct sockaddr_in **out_addr)
         exit(-1);
     }
 
-    *out_addr = &temp; // blumi the ONE-AND-ONLY did that!!! (★‿★)
+    *out_addr = &temp; 
 
     if (bind(sockfd, (struct sockaddr *)*out_addr, len) == -1)
     {
