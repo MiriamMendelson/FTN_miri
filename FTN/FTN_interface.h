@@ -17,8 +17,9 @@
 #define GET_RAND_PORT (0)
 #define GET_PRIVATE_ID (0)
 #define CLI_ARR_SIZE(n) (sizeof(END_POINT) * n)
-#define PACKET_MAX_SIZE (1024)
-#define RING_BUFF_MAX_SIZE (300)
+#define PACKET_MAX_SIZE (0x400)
+#define RING_BUFFER_SIZE (0x100)
+
 uint64_t g_num_of_cli;
 uint64_t SOCKFD;
 /*

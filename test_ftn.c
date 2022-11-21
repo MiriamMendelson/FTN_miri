@@ -350,7 +350,7 @@ int run_ring_test()
 		}
 	}
 	
-	printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\norder is: ");
+	printf("order is: ");
 	for (x = 0; x < RING_TEST_ORDER_LEN; ++x)
 	{
 		printf("%lx ", arr_pkg_order[x]);

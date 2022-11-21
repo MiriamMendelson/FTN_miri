@@ -1,9 +1,7 @@
-
 #ifndef __FTN_RING_BUFFER_H__
 #define __FTN_RING_BUFFER_H__
 
 #include "./FTN_interface.h"
-#define SIZE (100)
 
 typedef struct msg
 {
@@ -14,7 +12,7 @@ typedef struct msg
 
 typedef struct ring_buffer
 {
-    msg msgs[SIZE];
+    msg msgs[RING_BUFFER_SIZE];
     int64_t head;
     int64_t tail;  
 } ring_buffer;
