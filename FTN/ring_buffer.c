@@ -38,13 +38,11 @@ bool insert(ring_buffer *buff, char *new_msg, uint64_t len)
     {
         buff->tail = (buff->tail + 1) % RING_BUFFER_SIZE;
     }
-    // printf("match has been found! the coping func is onnn! head: %ld, tail: %ld\n",buff->head,buff->tail);
     bool ret_val = (memcpy((buff->msgs[buff->tail]).msg, new_msg, len) != NULL);
     if (ret_val)
     {
         (buff->msgs[buff->tail]).len = len;
-        // printf("im done coping %ld byts into %ld index\n", len, buff->tail);
-        // buff->msgs[buff->tail].len = len;noneed
+        
         buff->msgs[buff->tail].seq_num = ++seq_counter;
     }
     return ret_val;
@@ -52,7 +50,6 @@ bool insert(ring_buffer *buff, char *new_msg, uint64_t len)
 
 bool extract(ring_buffer *buff, uint32_t *out_index)
 {
-    //printf("starting extarct!\n");
     if (buff->head == -1)
     {
         printf("\nQueue is Empty");
