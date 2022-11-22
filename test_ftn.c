@@ -402,7 +402,10 @@ int star_test_loop_stress_test_sender(void)
 	return TEST_RET_ERROR_INTERNAL_ERROR;
 }
 
-int star_test_loop_stress_test_recver(void)
+#define STAR_SLEEP_EVERY_X_PKTS (0x300)
+#define STAR_SLEEP_IN_MS (300)
+
+int star_test_loop_stress_test_recver(bool run_with_sleep)
 {
 	FTN_RET_VAL ret_val = FTN_ERROR_UNKNONE;
 	uint64_t get_pkt_len = 0;
@@ -411,6 +414,7 @@ int star_test_loop_stress_test_recver(void)
 	char data_buffer_tmp[STAR_TEST_LOOP_STRESS_TEST_MAX_PKT_SIZE] = {0};
 	
 	uint64_t tmp_val = 0;
+	uint64_t iter_val = 0;
 	
 	while(1)
 	{	
@@ -437,7 +441,6 @@ int star_test_loop_stress_test_recver(void)
 				printf("magic sanity error on seed!\n");
 				return TEST_RET_ERROR_SANITI_FAIL;
 			}
-			
 			continue;
 		}
 		else
@@ -456,6 +459,15 @@ int star_test_loop_stress_test_recver(void)
 			}
 		}
 		
+		if (run_with_sleep)
+		{
+			iter_val++;
+			if (iter_val > STAR_SLEEP_EVERY_X_PKTS)
+			{
+				iter_val = 0;
+				msleep(STAR_SLEEP_IN_MS);
+			}
+		}
 	}
 	
 	return TEST_RET_ERROR_INTERNAL_ERROR;
@@ -467,12 +479,12 @@ void * star_test_loop_stress_test_sender_thread_warper(void * arg)
 	
 	UNUSED_PARAM(arg);
 	
-	ret_val = star_test_loop_stress_test_recver();
+	ret_val = star_test_loop_stress_test_sender();
 	printf("send thread shuld not exit. ret val %x\n", ret_val);
 	exit(TEST_RET_ERROR_INTERNAL_ERROR);
 }
 
-int star_test_with_stress_test(void)
+int star_test_with_stress_test(bool run_with_sleep)
 {
 	int ret_val = -1;
 	pthread_t send_thread_id = {0};
@@ -500,7 +512,7 @@ int star_test_with_stress_test(void)
 		return TEST_RET_ERROR_INTERNAL_ERROR;
 	}
 	
-	return star_test_loop_stress_test_recver();
+	return star_test_loop_stress_test_recver(run_with_sleep);
 }
 
 int run_ring_test()
@@ -658,8 +670,15 @@ int run_test()
 			return ret_val;
 			break;
 		case 2:
-		
-			ret_val = star_test_with_stress_test();
+			ret_val = star_test_with_stress_test(true);
+			if (ret_val != TEST_RET_SUCCESS)
+			{
+				printf("test return error! %x\n", ret_val);
+			}
+			g_is_test_end = true;
+			return ret_val;
+		case 3:
+			ret_val = star_test_with_stress_test(false);
 			if (ret_val != TEST_RET_SUCCESS)
 			{
 				printf("test return error! %x\n", ret_val);
