@@ -15,9 +15,6 @@
 #include <pthread.h>
 #include <ifaddrs.h>
 
-
-
-
 #ifndef __FTN_LIB_ERROR_CODES_FILE_H__
 #define __FTN_LIB_ERROR_CODES_FILE_H__
 
@@ -34,14 +31,7 @@ typedef enum FTN_RET_VAL
 	FTN_ERROR_ARGUMENTS_ERROR,
 	FTN_ERROR_INPUT_DATA_BUFFER_IS_TO_SMALL,
 	FTN_ERROR_NETWORK_FAILURE,
+	FTN_ERROR_SOCKET_OPERATION
 	// TODO: add yours error codes here
 } FTN_RET_VAL;
-
-
-// typedef enum FTN_CLIENT_REQUEST
-// {
-// 	GET_ID_REQ_enum = 0
-
-// } FTN_CLI_REQ;
-
 #endif

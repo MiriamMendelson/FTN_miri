@@ -19,6 +19,7 @@
 #define CLI_ARR_SIZE(n) (sizeof(END_POINT) * n)
 #define PACKET_MAX_SIZE (0x400)
 #define RING_BUFFER_SIZE (0x100)
+#define NO_FLAGS (0)
 
 uint64_t g_num_of_cli;
 uint64_t SOCKFD;
@@ -45,7 +46,7 @@ typedef struct END_POINT
 	uint64_t port;
 } END_POINT;
 
-END_POINT CLIENTS[MAX_NUMBER_OF_CLIENTS];
+extern END_POINT CLIENTS[];
 
 /*
  *  FTN_server_init

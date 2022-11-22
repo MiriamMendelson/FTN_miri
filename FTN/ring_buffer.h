@@ -14,14 +14,14 @@ typedef struct ring_buffer
 {
     msg msgs[RING_BUFFER_SIZE];
     int64_t head;
-    int64_t tail;  
+    int64_t tail;
 } ring_buffer;
 
-bool init_ring_buffer(ring_buffer *buff);
-bool init_rb_arr(ring_buffer *buff, uint64_t len);
-bool empty(ring_buffer *buff);
-bool insert(ring_buffer *buff, char *new_msg,uint64_t len);
-bool extract(ring_buffer *buff, uint32_t *out_index);
-bool peek(ring_buffer *buff, uint32_t *out_index);
-bool extract_first(ring_buffer *buff, uint64_t num_of_rings, uint32_t *out_cli_index);
+bool init_ring_buffer(ring_buffer *ring_buff);
+bool init_ringbuffer_arr(ring_buffer *ring_buff, uint64_t len);
+bool empty(ring_buffer *ring_buff);
+bool insert(ring_buffer *ring_buff, char *new_msg, uint64_t len);
+bool extract(ring_buffer *ring_buff, uint64_t *out_index);
+bool peek(ring_buffer *ring_buff, uint32_t *out_index);
+bool extract_first(ring_buffer *ring_buff, uint64_t num_of_rings, uint64_t *out_cli_index);
 #endif

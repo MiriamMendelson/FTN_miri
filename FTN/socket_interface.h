@@ -1,11 +1,9 @@
-
-#include "./FTN_interface.h"
-
 #ifndef __FTN_SOCKET_INTEFACE_H__
 #define __FTN_SOCKET_INTEFACE_H__
 
-int create_socket(uint64_t port, struct sockaddr_in** out_addr);
-struct sockaddr_in declare_server(uint32_t server_ip, uint64_t server_port);
-bool init_addr(struct sockaddr_in *addr, int port, uint8_t *ip_addr);
+#include "./FTN_interface.h"
 
+int create_socket(uint64_t port, struct sockaddr_in* out_addr);
+bool init_addr(struct sockaddr_in *addr, int port, uint8_t *ip_addr);
+bool is_same_addr(struct sockaddr_in *src, END_POINT *ep);
 #endif
