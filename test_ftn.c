@@ -23,14 +23,17 @@ uint64_t g_test_num = (~0ULL);
 #define TEST_RET_ERROR_API_ERROR (-3)
 #define TEST_RET_ERROR_SANITI_FAIL (-4)
 #define TEST_RET_ERROR_TIMEOUT (-5)
+#define TEST_RET_ERROR_INTERNAL_ERROR (-6)
+#define TEST_RET_ERROR_MEMORY_ERROR (-7)
 
 #define MONITOR_SLEEP_TIME_IN_MS (5000)
 
 uint64_t g_num_of_send_pkts = 0;
+uint64_t g_num_of_recv_pkts = 0;
 
 bool g_is_test_end = false;
 
-pthread_t monitor_thread_id = {0};
+int create_monitor_thread(volatile uint64_t * ptr_to_watch, char * string_to_print);
 
 uint32_t rand_range(uint32_t start, uint32_t end)
 {
@@ -221,7 +224,7 @@ int update_test_global_vars()
 #define RING_TEST_RUN_LEN (0x10000000)
 #define RING_TEST_DATA_BUFFER_LEN (0x10)
 
-uint64_t g_arr_all_nodes_state[MAX_NUMBER_OF_CLIENTS] = {0};
+uint64_t g_arr_all_nodes_state[MAX_NUMBER_OF_CLIENTS + 1] = {0};
 
 void ring_test_generate_pkt_data(void * data_buf, uint64_t seed)
 {
@@ -306,6 +309,200 @@ int run_ring_test_loops(uint64_t * arr_pkg_order)
 	return TEST_RET_SUCCESS;
 }
 
+//uint64_t g_start_test_arr_all_nodes_state_for_send[MAX_NUMBER_OF_CLIENTS] = {0};
+uint64_t g_star_test_arr_all_nodes_state_for_recv[MAX_NUMBER_OF_CLIENTS + 1] = {0};
+uint64_t g_star_test_all_nodes_send_seed = 0;
+
+#define STAR_TEST_LOOP_STRESS_TEST_MAX_PKT_SIZE (0x100)
+#define STAR_TEST_LOOP_STRESS_TEST_MIN_PKT_SIZE (0x10)
+#define STAR_TEST_LOOP_STRESS_TEST_NUM_OF_ITERS_BEFORE_UPDATE_SEED (0x50)
+
+#define STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_PREFFIX ("inc")
+#define STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_PREFFIX_LEN (sizeof(STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_PREFFIX) - 1)
+#define STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_SIZE (STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_PREFFIX_LEN + sizeof(uint64_t))
+
+void build_star_test_buffer_for_recv(char * addr, uint64_t data_buffer_len, uint64_t cli_id)
+{
+	uint64_t seed = 0;
+	uint64_t expected_pkt_data_buffer_seed = 0;
+	
+	expected_pkt_data_buffer_seed = g_star_test_arr_all_nodes_state_for_recv[cli_id];
+	
+	seed += expected_pkt_data_buffer_seed ^ 0xaaaaaaaa55555555ULL;
+	seed *= data_buffer_len;
+	
+	build_pkt_data(addr, data_buffer_len, seed);
+}
+
+void build_star_test_buffer_for_send(char * addr, uint64_t data_buffer_len)
+{
+	uint64_t seed = 0;
+	uint64_t expected_pkt_data_buffer_seed = 0;
+	
+	expected_pkt_data_buffer_seed = g_star_test_all_nodes_send_seed;
+	
+	seed += expected_pkt_data_buffer_seed ^ 0xaaaaaaaa55555555ULL;
+	seed *= data_buffer_len;
+	
+	build_pkt_data(addr, data_buffer_len, seed);
+}
+
+void inc_client_id_node_state(uint64_t cli_id)
+{
+	g_star_test_arr_all_nodes_state_for_recv[cli_id]++;
+}
+
+int star_test_loop_stress_test_sender(void)
+{
+	char data_buffer[STAR_TEST_LOOP_STRESS_TEST_MAX_PKT_SIZE] = {0};
+	uint64_t pkt_size = 0;
+	uint64_t cli_id = 0;
+	uint64_t iter = 0;
+	uint64_t x = 0;
+	FTN_RET_VAL ret_val = FTN_ERROR_UNKNONE;
+	
+	while(1)
+	{
+		for (iter = 0; iter < STAR_TEST_LOOP_STRESS_TEST_NUM_OF_ITERS_BEFORE_UPDATE_SEED; ++iter)
+		{
+			for (x = 0; x < g_num_of_clients; ++x)
+			{
+				cli_id = x + SERVER_ADDRESS_ID;
+				if (cli_id == g_my_client_id)
+				{
+					continue;
+				}
+				
+				pkt_size = rand_range(STAR_TEST_LOOP_STRESS_TEST_MIN_PKT_SIZE, STAR_TEST_LOOP_STRESS_TEST_MAX_PKT_SIZE);
+				build_star_test_buffer_for_send(data_buffer, pkt_size);
+				
+				ret_val = FTN_send(data_buffer, pkt_size, cli_id);
+				if (!FTN_SUCCESS(ret_val))
+				{
+					printf("send return error %x!\n", ret_val);
+					return TEST_RET_ERROR_API_ERROR;
+				}
+				g_num_of_send_pkts++;
+			}
+		}
+		
+		g_star_test_all_nodes_send_seed++;
+		memcpy(data_buffer, STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_PREFFIX, STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_PREFFIX_LEN);
+		memcpy(data_buffer + STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_PREFFIX_LEN, &g_star_test_all_nodes_send_seed, sizeof(g_star_test_all_nodes_send_seed));
+		
+		ret_val = FTN_send(data_buffer, STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_SIZE, BROADCAST_ADDRESS_ID);
+		if (!FTN_SUCCESS(ret_val))
+		{
+			printf("send all return error %x!\n", ret_val);
+			return TEST_RET_ERROR_API_ERROR;
+		}
+		g_num_of_send_pkts++;
+	}
+	
+	return TEST_RET_ERROR_INTERNAL_ERROR;
+}
+
+int star_test_loop_stress_test_recver(void)
+{
+	FTN_RET_VAL ret_val = FTN_ERROR_UNKNONE;
+	uint64_t get_pkt_len = 0;
+	uint64_t pkt_source_address_id = 0;
+	char data_buffer[STAR_TEST_LOOP_STRESS_TEST_MAX_PKT_SIZE] = {0};
+	char data_buffer_tmp[STAR_TEST_LOOP_STRESS_TEST_MAX_PKT_SIZE] = {0};
+	
+	uint64_t tmp_val = 0;
+	
+	while(1)
+	{	
+		ret_val = FTN_recv(data_buffer, sizeof(data_buffer), &get_pkt_len, BROADCAST_ADDRESS_ID, &pkt_source_address_id, false);
+		if (!FTN_SUCCESS(ret_val))
+		{
+			return TEST_RET_ERROR_API_ERROR;
+		}
+		
+		g_num_of_recv_pkts++;
+		
+		if (get_pkt_len == STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_SIZE)
+		{
+			if (0 != memcmp(data_buffer, STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_PREFFIX, STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_PREFFIX_LEN))
+			{
+				printf("magic sanity error!\n");
+				return TEST_RET_ERROR_SANITI_FAIL;
+			}
+			tmp_val = *((uint64_t *)(data_buffer + STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_PREFFIX_LEN));
+			
+			inc_client_id_node_state(pkt_source_address_id);
+			if (g_star_test_arr_all_nodes_state_for_recv[pkt_source_address_id] != tmp_val)
+			{
+				printf("magic sanity error on seed!\n");
+				return TEST_RET_ERROR_SANITI_FAIL;
+			}
+			
+			continue;
+		}
+		else
+		{
+			if ((get_pkt_len < STAR_TEST_LOOP_STRESS_TEST_MIN_PKT_SIZE) || (get_pkt_len >= STAR_TEST_LOOP_STRESS_TEST_MAX_PKT_SIZE))
+			{
+				printf("pkt sanity error on size!\n");
+				return TEST_RET_ERROR_SANITI_FAIL;
+			}
+			
+			build_star_test_buffer_for_recv(data_buffer_tmp, get_pkt_len, pkt_source_address_id);
+			if (0 != memcmp(data_buffer_tmp, data_buffer, get_pkt_len))
+			{
+				printf("pkt sanity error on data!\n");
+				return TEST_RET_ERROR_SANITI_FAIL;
+			}
+		}
+		
+	}
+	
+	return TEST_RET_ERROR_INTERNAL_ERROR;
+}	
+
+void * star_test_loop_stress_test_sender_thread_warper(void * arg)
+{
+	int ret_val = -1;
+	
+	UNUSED_PARAM(arg);
+	
+	ret_val = star_test_loop_stress_test_recver();
+	printf("send thread shuld not exit. ret val %x\n", ret_val);
+	exit(TEST_RET_ERROR_INTERNAL_ERROR);
+}
+
+int star_test_with_stress_test(void)
+{
+	int ret_val = -1;
+	pthread_t send_thread_id = {0};
+	
+	if (STAR_TEST_LOOP_STRESS_TEST_MAGIC_PKT_SIZE >= STAR_TEST_LOOP_STRESS_TEST_MIN_PKT_SIZE)
+	{
+		return TEST_RET_ERROR_INTERNAL_ERROR;
+	}
+
+	ret_val = create_monitor_thread(&g_num_of_recv_pkts, "num_of_recv");
+	if (ret_val != 0)
+	{
+		return ret_val;
+	}
+	
+	ret_val = create_monitor_thread(&g_num_of_send_pkts, "num_of_send");
+	if (ret_val != 0)
+	{
+		return ret_val;
+	}
+	
+	ret_val = pthread_create(&send_thread_id, NULL, &star_test_loop_stress_test_sender_thread_warper, NULL);
+	if (ret_val != 0)
+	{
+		return TEST_RET_ERROR_INTERNAL_ERROR;
+	}
+	
+	return star_test_loop_stress_test_recver();
+}
+
 int run_ring_test()
 {
 	FTN_RET_VAL ret_val = FTN_ERROR_UNKNONE;
@@ -315,6 +512,12 @@ int run_ring_test()
 	uint64_t z = 0;
 	uint64_t tmp = 0;
 	uint64_t arr_pkg_order[RING_TEST_ORDER_LEN] = {};
+	
+	test_ret_val = create_monitor_thread(&g_num_of_send_pkts, "iteration_per_second");
+	if (test_ret_val != 0)
+	{
+		return test_ret_val;
+	}
 	
 	if (g_my_client_id == SERVER_ADDRESS_ID) //is server
 	{
@@ -359,6 +562,13 @@ int run_ring_test()
 	return run_ring_test_loops(arr_pkg_order);
 }
 
+typedef struct minitor_thread_params
+{
+	volatile uint64_t * pkt_count_ptr;
+	char * string_counter;
+	pthread_t monitor_thread_id;
+} minitor_thread_params;
+
 void * monitor_thread(void * arg)
 {
 	uint64_t cur_num_of_pkt = 0;
@@ -366,13 +576,16 @@ void * monitor_thread(void * arg)
 	uint64_t pkt_diff = 0;
 	uint64_t pkt_per_sec = 0;
 	
-	UNUSED_PARAM(arg);
+	minitor_thread_params * monitor_arg = arg;
+	
+	volatile uint64_t * pkt_send_ptr = monitor_arg->pkt_count_ptr;
+	char * string_to_print = monitor_arg->string_counter;
 	
 	msleep(MONITOR_SLEEP_TIME_IN_MS);
 	
 	while(!g_is_test_end)
 	{
-		cur_num_of_pkt = g_num_of_send_pkts;
+		cur_num_of_pkt = *pkt_send_ptr;
 		
 		if (cur_num_of_pkt == last_num_of_pkt)
 		{
@@ -382,25 +595,49 @@ void * monitor_thread(void * arg)
 		
 		pkt_diff = cur_num_of_pkt - last_num_of_pkt;
 		pkt_per_sec = pkt_diff / (MONITOR_SLEEP_TIME_IN_MS / 1000);
-		printf("address_id 0x%lx iteration_per_second 0x%lx\n", g_my_client_id, pkt_per_sec);
+		printf("address_id 0x%lx %s 0x%lx\n", g_my_client_id, string_to_print, pkt_per_sec);
 		
 		last_num_of_pkt = cur_num_of_pkt;
 		msleep(MONITOR_SLEEP_TIME_IN_MS);
 	}
 	
 	return NULL;
+} 
+
+int create_monitor_thread(volatile uint64_t * ptr_to_watch, char * string_to_print)
+{
+	minitor_thread_params * param = NULL;
+	int ret_val = -1;
+	
+	param = malloc(sizeof(*param));
+	if (NULL == param)
+	{
+		return TEST_RET_ERROR_MEMORY_ERROR;
+	}
+	
+	memset(param, 0x0, sizeof(*param));
+	
+	param->pkt_count_ptr = ptr_to_watch;
+	param->string_counter = string_to_print;
+	
+	ret_val = pthread_create(&(param->monitor_thread_id), NULL, &monitor_thread, param);
+	if (ret_val != 0)
+	{
+		return TEST_RET_ERROR_INTERNAL_ERROR;
+	}
+	
+	return TEST_RET_SUCCESS;
 }
 
 int run_test()
 {
 	int ret_val = -1;
+	
 	ret_val = update_test_global_vars();
 	if (ret_val != TEST_RET_SUCCESS)
 	{
 		return ret_val;
 	}
-	
-	pthread_create(&monitor_thread_id, NULL, &monitor_thread, NULL);
 	
 	switch (g_test_num)
 	{
@@ -420,6 +657,15 @@ int run_test()
 			g_is_test_end = true;
 			return ret_val;
 			break;
+		case 2:
+		
+			ret_val = star_test_with_stress_test();
+			if (ret_val != TEST_RET_SUCCESS)
+			{
+				printf("test return error! %x\n", ret_val);
+			}
+			g_is_test_end = true;
+			return ret_val;
 		default:
 			printf("test num %lx is not supported\n", g_test_num);
 			return TEST_RET_ERROR_PARAM_CHK;
