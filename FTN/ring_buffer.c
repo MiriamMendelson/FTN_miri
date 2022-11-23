@@ -2,8 +2,9 @@
 
 bool init_ring_buffer(ring_buffer *ring_buff)
 {
-    ring_buff->head = -1;
-    ring_buff->tail = -1;
+    ring_buff->head = 0;
+    ring_buff->tail = 0;
+    ring_buff->count = 0;
     return true;
 }
 
@@ -22,31 +23,31 @@ bool init_ringbuffer_arr(ring_buffer *ring_buff, uint64_t len)
 bool insert(ring_buffer *ring_buff, char *new_msg, uint64_t len)
 {
     static uint64_t seq_counter = 0;
+
     if (len > MAX_DATA_BUFFER_LEN)
     {
         return FTN_ERROR_ARGUMENTS_ERROR;
     }
-    if ((ring_buff->head == 0 && ring_buff->tail == RING_BUFFER_SIZE - 1) ||
-        (ring_buff->tail == (ring_buff->head - 1) % (RING_BUFFER_SIZE - 1)))
+
+    if (ring_buff->count == RING_BUFFER_SIZE)
     {
         printf("\nQueue is Full, couldnt write");
         return false;
     }
 
-    if (ring_buff->head == -1) /* Insert First Element */
-    {
-        ring_buff->head = 0;
-        ring_buff->tail = 0;
-    }
-    else
-    {
-        ring_buff->tail = (ring_buff->tail + 1) % RING_BUFFER_SIZE;
-    }
     memcpy((ring_buff->msgs[ring_buff->tail]).msg, new_msg, len);
 
-    (ring_buff->msgs[ring_buff->tail]).len = len;
-    ring_buff->msgs[ring_buff->tail].seq_num = ++seq_counter;
+    (ring_buff->msgs[ring_buff->tail]).len = len;               //store msg len
+    ring_buff->msgs[ring_buff->tail].seq_num = ++seq_counter;   //and msg identefining seq_num
 
+    ring_buff->tail++;
+
+    if (ring_buff->tail == RING_BUFFER_SIZE - 1)                //end of circular buffer?
+    {
+        ring_buff->tail = 0;                                    //turn around
+    }
+
+    ring_buff->count++;
     return true;
 }
 
@@ -60,16 +61,14 @@ bool extract(ring_buffer *ring_buff, uint64_t *out_index)
 
     *out_index = ring_buff->head;
 
-    if (ring_buff->head == ring_buff->tail)
+    ring_buff->head++;
+
+    if (ring_buff->head == RING_BUFFER_SIZE - 1)                //end of circular buffer?
     {
-        ring_buff->head = -1;
-        ring_buff->tail = -1;
-    }
-    else
-    {
-        ring_buff->head = (ring_buff->head + 1) % RING_BUFFER_SIZE;
+        ring_buff->head = 0;                                    //turn around
     }
 
+    ring_buff->count--;
     return true;
 }
 
@@ -88,7 +87,7 @@ bool peek(ring_buffer *ring_buff, uint32_t *out_index)
 
 bool empty(ring_buffer *ring_buff)
 {
-    return ((ring_buff->head == -1) && (ring_buff->tail == -1));
+    return ring_buff->count == 0;
 }
 
 bool extract_first(ring_buffer *ring_buff, uint64_t num_of_rings, uint64_t *out_cli_index)

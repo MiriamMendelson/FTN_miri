@@ -15,6 +15,7 @@ typedef struct ring_buffer
     msg msgs[RING_BUFFER_SIZE];
     int64_t head;
     int64_t tail;
+    uint64_t count;
 } ring_buffer;
 
 bool init_ring_buffer(ring_buffer *ring_buff);
