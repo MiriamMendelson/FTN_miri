@@ -261,7 +261,7 @@ FTN_RET_VAL FTN_send(void *data_buffer, uint64_t data_buffer_size, uint64_t dest
 
 	if (dest_address_id == BROADCAST_ADDRESS_ID) // broadcast- send msg to all cli's
 	{
-		for (x = FIRST_CLIENT_ADDRESS_ID; x <= g_num_of_cli; x++)
+		for (x = FIRST_CLIENT_ADDRESS_ID; x < g_num_of_cli; x++)
 		{
 			if (!init_addr(&dest_client, CLIENTS[x].port, CLIENTS[x].ip.ip_addr))
 			{
@@ -269,6 +269,7 @@ FTN_RET_VAL FTN_send(void *data_buffer, uint64_t data_buffer_size, uint64_t dest
 			}
 			if (sendto(SOCKFD, data_buffer, data_buffer_size, NO_FLAGS, (struct sockaddr *)&dest_client, sizeof(dest_client)) == -1)
 			{
+				// printf("i've send to IP: %d.%d.%d.%d, PORT: %ld\n", CLIENTS[x].ip.ip_addr[0],CLIENTS[x].ip.ip_addr[1],CLIENTS[x].ip.ip_addr[2],CLIENTS[x].ip.ip_addr[3], CLIENTS[x].port);
 				return FTN_ERROR_NETWORK_FAILURE;
 			}
 		}
