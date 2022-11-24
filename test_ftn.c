@@ -127,7 +127,7 @@ int recv_exacly_len(void * data_buffer, uint64_t data_buffer_size, uint64_t expe
 	
 	if (get_pkt_len != data_buffer_size)
 	{
-		printf("wrong data buffer len!\n");
+		printf("wrong data buffer len! get_pkt_len:%ld != data_buffer_size: %ld\n", get_pkt_len, data_buffer_size);
 		return TEST_RET_ERROR_SANITI_FAIL;
 	}
 	
@@ -161,6 +161,7 @@ int exchage_num_of_clients_to_other_app()
 		
 		for (x = FIRST_CLIENT_ADDRESS_ID; x < (g_num_of_clients + SERVER_ADDRESS_ID); ++x)
 		{
+			printf("test--- sending size %ld\n",sizeof(msg_to_send));
 			ret_val = FTN_send(&msg_to_send, sizeof(msg_to_send), x);
 			if (!FTN_SUCCESS(ret_val))
 			{
@@ -537,7 +538,7 @@ int run_ring_test()
 		{
 			arr_pkg_order[x] = x % g_num_of_clients + 1;
 		}
-		
+		//mess up the ARR
 		for (x = 0; x < (RING_TEST_ORDER_LEN * 0x20); ++x)
 		{
 			y = rand_range(0, RING_TEST_ORDER_LEN);
@@ -555,7 +556,7 @@ int run_ring_test()
 			return TEST_RET_ERROR_API_ERROR;
 		}
 	}
-	else
+	else	//it is client
 	{
 		test_ret_val = recv_exacly_len(arr_pkg_order, sizeof(arr_pkg_order), SERVER_ADDRESS_ID);
 		if (test_ret_val != TEST_RET_SUCCESS)
@@ -601,7 +602,7 @@ void * monitor_thread(void * arg)
 		
 		if (cur_num_of_pkt == last_num_of_pkt)
 		{
-			printf("probably there is deadlock!\n");
+			printf("---------------------------------------------------------------------------------------------\nprobably there is deadlock!\n");
 			exit(TEST_RET_ERROR_TIMEOUT);
 		}
 		
