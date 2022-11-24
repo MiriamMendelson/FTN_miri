@@ -1,21 +1,28 @@
-
-#include <stdint.h>
-#include <stdbool.h>
-#include "FTN_common.h"
-
 #ifndef __FTN_LIB_INTERFACE_H__
 #define __FTN_LIB_INTERFACE_H__
+
+#include "FTN_common.h"
+
 
 /*
  *  FTN - fast transport network
  *  library interface file
  */
 
-
-//FTN consts
+// FTN consts
 #define MAX_DATA_BUFFER_LEN (0x1000)
 #define MAX_NUMBER_OF_CLIENTS (0x10)
+// our definitions
+#define CONN_REQ ("get id")
+#define GET_RAND_PORT (0)
+#define GET_PRIVATE_ID (0)
+#define CLI_ARR_SIZE(n) (sizeof(END_POINT) * n)
+#define PACKET_MAX_SIZE (0x400)
+#define RING_BUFFER_SIZE (0x100)
+#define NO_FLAGS (0)
 
+uint64_t g_num_of_cli;
+uint64_t SOCKFD;
 /*
  * the address id 0 is reserved for broadcast
  * server id is 1
@@ -31,6 +38,15 @@ typedef struct FTN_IPV4_ADDR
 {
 	uint8_t ip_addr[4];
 } FTN_IPV4_ADDR;
+
+typedef struct END_POINT
+{
+	uint8_t id;
+	FTN_IPV4_ADDR ip;
+	uint64_t port;
+} END_POINT;
+
+extern END_POINT CLIENTS[];
 
 /*
  *  FTN_server_init
@@ -55,7 +71,7 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_netwo
  *	this function shuld block and not return until all other clients will be connected and infrastructure is up and running!
  *	on success return FTN_ERROR_SUCCESS
  */
-FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint64_t * out_my_address);
+FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint64_t *out_my_address);
 
 /*
  *  FTN_recv
@@ -77,7 +93,7 @@ FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint6
  *
  *	on success return FTN_ERROR_SUCCESS
  */
-FTN_RET_VAL FTN_recv(void * data_buffer, uint64_t data_buffer_size, uint64_t * out_pkt_len, uint64_t source_address_id, uint64_t * opt_out_source_address_id, bool async);
+FTN_RET_VAL FTN_recv(void *data_buffer, uint64_t data_buffer_size, uint64_t *out_pkt_len, uint64_t source_address_id, uint64_t *opt_out_source_address_id, bool async);
 
 /*
  *  FTN_send
@@ -90,7 +106,7 @@ FTN_RET_VAL FTN_recv(void * data_buffer, uint64_t data_buffer_size, uint64_t * o
 						if set to other number: send to this client
  *
  *	NOTES:
- *		1. this function block only is there is no room to queue this msg
+ *		1. this function block only if there is no room to queue this msg
  *
  *  on success return FTN_ERROR_SUCCESS
  */
