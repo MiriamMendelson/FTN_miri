@@ -8,11 +8,11 @@ bool init_ring_buffer(ring_buffer *ring_buff)
     return true;
 }
 
-bool init_ringbuffer_arr(ring_buffer *ring_buff, uint64_t len)
+bool init_ringbuffer_arr(ring_buffer *ring_buff_arr, uint64_t len)
 {
     for (uint32_t x = 0; x < len; x++)
     {
-        if (true != init_ring_buffer(&ring_buff[x]))
+        if (true != init_ring_buffer(&ring_buff_arr[x]))
         {
             return false;
         }
@@ -20,7 +20,7 @@ bool init_ringbuffer_arr(ring_buffer *ring_buff, uint64_t len)
     return true;
 }
 
-bool insert(ring_buffer *ring_buff, char *new_msg, uint64_t len)
+bool RB_insert(ring_buffer *ring_buff, char *new_msg, uint64_t len)
 {
     static uint64_t seq_counter = 0;
 
@@ -51,9 +51,9 @@ bool insert(ring_buffer *ring_buff, char *new_msg, uint64_t len)
     return true;
 }
 
-bool extract(ring_buffer *ring_buff, uint64_t *out_index)
+bool RB_extract(ring_buffer *ring_buff, uint64_t *out_index)
 {
-    if (empty(ring_buff))
+    if (RB_empty(ring_buff))
     {
         printf("\nQueue is Empty");
         return false;
@@ -72,9 +72,9 @@ bool extract(ring_buffer *ring_buff, uint64_t *out_index)
     return true;
 }
 
-bool peek(ring_buffer *ring_buff, uint32_t *out_index)
+bool RB_peek(ring_buffer *ring_buff, uint32_t *out_index)
 {
-    if (empty(ring_buff))
+    if (RB_empty(ring_buff))
     {
         printf("\nQueue is Empty");
         return false;
@@ -85,12 +85,12 @@ bool peek(ring_buffer *ring_buff, uint32_t *out_index)
     return true;
 }
 
-bool empty(ring_buffer *ring_buff)
+bool RB_empty(ring_buffer *ring_buff)
 {
     return ring_buff->count == 0;
 }
 
-bool extract_first(ring_buffer *ring_buff, uint64_t num_of_rings, uint64_t *out_cli_index)
+bool RB_extract_first(ring_buffer *ring_buff, uint64_t num_of_rings, uint64_t *out_cli_index)
 {
     uint64_t i;
     uint32_t curr_i_head = 0;
@@ -99,7 +99,7 @@ bool extract_first(ring_buffer *ring_buff, uint64_t num_of_rings, uint64_t *out_
 
     for (i = SERVER_ADDRESS_ID; i <= num_of_rings; i++)
     {
-        if (peek(&(ring_buff[i]), &curr_i_head))
+        if (RB_peek(&(ring_buff[i]), &curr_i_head))
         {
             if (ring_buff[i].msgs[curr_i_head].seq_num < oldest_msg_seq_num)
             {
