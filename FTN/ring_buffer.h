@@ -3,12 +3,12 @@
 
 #include "./FTN_interface.h"
 
-typedef struct msg
-{
-    char msg[MAX_DATA_BUFFER_LEN];
-    uint64_t len;
-    uint64_t seq_num;
-} msg;
+// typedef struct msg
+// {
+//     char msg[MAX_DATA_BUFFER_LEN];
+//     uint64_t len;
+//     uint64_t seq_num;
+// } msg;
 
 typedef struct ring_buffer
 {
@@ -17,6 +17,8 @@ typedef struct ring_buffer
     int64_t tail;
     uint64_t count;
 } ring_buffer;
+
+
 
 /*
  *  init_ring_buffer
@@ -55,7 +57,7 @@ bool RB_empty(ring_buffer *ring_buff);
  *
  *	this function is not thread safe. for safe multithreaded usues must be call under lock.
  */
-bool RB_insert(ring_buffer *ring_buff, char *new_msg, uint64_t len);
+bool RB_insert(ring_buffer *ring_buff, char *new_msg, uint64_t seq_num, uint64_t len);
 /*
  *  RB_insert
  *  extracts the head of RB.
@@ -87,4 +89,13 @@ bool RB_peek(ring_buffer *ring_buff, uint32_t *out_index);
  *	this function is not thread safe. for safe multithreaded usues must be call under lock.
  */
 bool RB_extract_first(ring_buffer *ring_buff, uint64_t num_of_rings, uint64_t *out_cli_index);
+/*
+ *  RB_is_full
+ *  returns whether the reing fuffer is full or not.
+ *  params:
+ *  	ring_buff_arr - A pointer to an arr of RB's.
+ *
+ *	this function is not thread safe. for safe multithreaded usues must be call under lock.
+ */
+bool RB_is_full(ring_buffer *ring_buff);
 #endif

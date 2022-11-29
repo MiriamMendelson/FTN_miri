@@ -18,7 +18,7 @@
 #define GET_PRIVATE_ID (0)
 #define CLI_ARR_SIZE(n) (sizeof(END_POINT) * n)
 #define PACKET_MAX_SIZE (0x400)
-#define RING_BUFFER_SIZE (0x100)
+#define RING_BUFFER_SIZE (0x3000)
 #define NO_FLAGS (0)
 
 uint64_t g_num_of_cli;
@@ -41,12 +41,39 @@ typedef struct FTN_IPV4_ADDR
 
 typedef struct END_POINT
 {
-	uint8_t id;
+	uint64_t id;
 	FTN_IPV4_ADDR ip;
 	uint64_t port;
 } END_POINT;
 
 extern END_POINT CLIENTS[];
+
+
+typedef struct msg
+{
+    char msg[MAX_DATA_BUFFER_LEN];
+    uint64_t len;
+    uint64_t seq_num;
+} msg;
+
+typedef struct msg_log
+{
+    char msg[MAX_DATA_BUFFER_LEN];
+    uint64_t len;
+    uint64_t seq_num;
+	uint64_t src;
+	uint64_t target;
+} msg_log;
+extern msg_log logg_rcv[];
+extern uint64_t lgr_rcv_count;
+
+extern msg_log logg_snt[];
+extern uint64_t lgr_snt_count;
+
+extern bool print_log(msg_log* logg, int len);
+void add_pkt_log(bool is_send, void *data_buffer, uint64_t len, uint64_t src, uint64_t dest);
+void DumpHex(const void* data, size_t size);
+
 
 /*
  *  FTN_server_init

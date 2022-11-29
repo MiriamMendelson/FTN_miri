@@ -19,20 +19,21 @@ int create_socket(uint64_t port, struct sockaddr_in *out_addr)
 
     if (sockfd == -1)
     {
-        perror("socket");
-        return 0;
+        printf("socket");
+        return -1;
     }
 
     if (bind(sockfd, (struct sockaddr *)out_addr, len) == -1)
     {
-        perror("bind");
-        return 0;
+        printf("bind");
+        return -1;
     }
 
     if (getsockname(sockfd, (struct sockaddr *)out_addr, &len) == -1)
     {
-        perror("getsockname");
-        return 0;
+        close(sockfd);
+        printf("getsockname");
+        return -1;
     }
 
     printf("binded port %d\n", (out_addr)->sin_port);
