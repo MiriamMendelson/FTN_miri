@@ -14,6 +14,9 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <ifaddrs.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #ifndef __FTN_LIB_ERROR_CODES_FILE_H__
 #define __FTN_LIB_ERROR_CODES_FILE_H__
@@ -34,7 +37,8 @@ typedef enum FTN_RET_VAL
 	FTN_ERROR_SOCKET_OPERATION,
 	FTN_ERROR_DATA_SENT_IS_TOO_LONG,
 	FTN_ERROR_NO_CONNECT,
-	FTN_ERROR_MUTEX_ERROR
+	FTN_ERROR_MUTEX_ERROR,
+	FTN_ERROR_SHMEM_FAILURE
 	// TODO: add your error codes here
 } FTN_RET_VAL;
 #endif
