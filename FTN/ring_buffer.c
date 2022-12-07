@@ -40,7 +40,7 @@ bool RB_insert(ring_buffer *ring_buff, char *new_msg, uint64_t seq_num, uint64_t
     // printf("thread couses: RB_inserted: tail- %ld, head- %ld, len of stored data: %ld, seq_num: %ld, total in this cli: %ld \n", ring_buff->tail, ring_buff->head, ring_buff->msgs[ring_buff->tail].len, ring_buff->msgs[ring_buff->tail].seq_num, ring_buff->count + 1);
     ring_buff->tail++;
 
-    if (ring_buff->tail == RING_BUFFER_SIZE - 1)                //end of circular buffer?
+    if (ring_buff->tail == RING_BUFFER_SIZE)                //end of circular buffer?
     {
         ring_buff->tail = 0;                                    //turn around
     }
@@ -63,7 +63,7 @@ bool RB_extract(ring_buffer *ring_buff, uint64_t *out_index)
     ring_buff->head++;
 
     // printf("thread couses: RB_extract: tail- %ld, head- %ld, len of stored data: %ld, seq_num: %ld, total in this cli: %ld\n", ring_buff->tail, ring_buff->head, ring_buff->msgs[ring_buff->tail].len, ring_buff->msgs[ring_buff->tail].seq_num, ring_buff->count + 1);
-    if (ring_buff->head == RING_BUFFER_SIZE - 1)                //end of circular buffer?
+    if (ring_buff->head == RING_BUFFER_SIZE)                //end of circular buffer?
     {
         ring_buff->head = 0;                                    //turn around
     }

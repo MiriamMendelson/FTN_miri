@@ -15,6 +15,45 @@ pthread_mutex_t lock;
 int64_t g_fd_shmem = 0;
 void *g_shmem_adrr = NULL;
 
+void DumpHex(const void *data, size_t size)
+{
+	char ascii[17];
+	size_t i, j;
+	ascii[16] = '\0';
+	for (i = 0; i < size; ++i)
+	{
+		printf("%02X ", ((unsigned char *)data)[i]);
+		if (((unsigned char *)data)[i] >= ' ' && ((unsigned char *)data)[i] <= '~')
+		{
+			ascii[i % 16] = ((unsigned char *)data)[i];
+		}
+		else
+		{
+			ascii[i % 16] = '.';
+		}
+		if ((i + 1) % 8 == 0 || i + 1 == size)
+		{
+			printf(" ");
+			if ((i + 1) % 16 == 0)
+			{
+				printf("|  %s \n", ascii);
+			}
+			else if (i + 1 == size)
+			{
+				ascii[(i + 1) % 16] = '\0';
+				if ((i + 1) % 16 <= 8)
+				{
+					printf(" ");
+				}
+				for (j = (i + 1) % 16; j < 16; ++j)
+				{
+					printf("   ");
+				}
+				printf("|  %s \n", ascii);
+			}
+		}
+	}
+}
 void *manage_insertion_rings(void *param)
 {
 	UNUSED_PARAM(param);
@@ -22,15 +61,22 @@ void *manage_insertion_rings(void *param)
 	run_mood = true;		 // thread stated- we're good to go!
 	uint64_t actual_len = 0; // REMM! turn back to int64_t
 	uint64_t seq_counter = 0;
+	int ret_val = 0;
 	struct sockaddr_in from = {0};
 	char msg_to_insert[MAX_DATA_BUFFER_LEN] = {0};
 
 	while (1)
 	{
-		actual_len = recvfrom(SOCKFD, &(msg_to_insert[0]), MAX_DATA_BUFFER_LEN, NO_FLAGS, (struct sockaddr *)&from, &sockaddr_len);
-		if (0 == actual_len)
+		ret_val = recvfrom(SOCKFD, &(msg_to_insert[0]), MAX_DATA_BUFFER_LEN, NO_FLAGS, (struct sockaddr *)&from, &sockaddr_len);
+		if (0 >= ret_val)
 		{
 			return (void *)FTN_ERROR_NETWORK_FAILURE;
+		}
+		actual_len = ret_val;
+		if (CLIENTS[GET_PRIVATE_ID].id == 1)
+		{
+			printf("%ld <------------------\n", seq_counter + 1);
+			DumpHex(&(msg_to_insert[0]), actual_len);
 		}
 		verify_succ(pthread_mutex_lock(&lock)); // wait on lock before referencing shared DS
 		for (i = SERVER_ADDRESS_ID; i < g_num_of_cli; i++)
@@ -45,6 +91,7 @@ void *manage_insertion_rings(void *param)
 
 				if (true != RB_insert(&ring_buffs[i], &msg_to_insert[0], seq_counter++, actual_len))
 				{
+					//add printf
 					return (void *)FTN_ERROR_DATA_SENT_IS_TOO_LONG;
 				}
 				verify_succ(pthread_mutex_unlock(&lock));
@@ -182,6 +229,8 @@ FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint6
 	}
 
 	// TODO - if ID didnt arrive retry.
+	sleep(1);
+
 	printf("FTN_client_init is finished! ip %d.%d.%d.%d port %lx\n", server_ip.ip_addr[0], server_ip.ip_addr[1], server_ip.ip_addr[2], server_ip.ip_addr[3], server_port);
 	return FTN_ERROR_SUCCESS;
 }
