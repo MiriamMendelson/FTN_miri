@@ -16,8 +16,11 @@ typedef struct ring_buffer
     int64_t head;
     int64_t tail;
     uint64_t count;
+    pthread_mutex_t shmem_mutex;
+    uint64_t head_in_prograss;
+    uint64_t tail_in_prograss;
+    int64_t len_in_prograss;
 } ring_buffer;
-
 
 
 /*
@@ -52,14 +55,13 @@ bool RB_empty(ring_buffer *ring_buff);
  *  insertes new data to the end of RB, and updates its sequence number.
  *  params:
  *  	ring_buff_arr - pointer to RB arr.
- *      new_msg - pointer to data.
- *      len - size of data to copy.
+ *      new_msg - pointer to the new data data.
  *
  *	this function is not thread safe. for safe multithreaded usues must be call under lock.
  */
-bool RB_insert(ring_buffer *ring_buff, char *new_msg, uint64_t seq_num, uint64_t len);
+bool RB_insert(ring_buffer *ring_buff, msg *new_msg);
 /*
- *  RB_insert
+ *  RB_extract
  *  extracts the head of RB.
  *  params:
  *  	ring_buff_arr - A pointer to RB arr.
@@ -67,7 +69,7 @@ bool RB_insert(ring_buffer *ring_buff, char *new_msg, uint64_t seq_num, uint64_t
  *
  *	this function is not thread safe. for safe multithreaded usues must be call under lock.
  */
-bool RB_extract(ring_buffer *ring_buff, uint64_t *out_index);
+bool RB_extract(ring_buffer *ring_buff, msg *out_msg);
 /*
  *  RB_peek
  *  returns the index of the RB head.
@@ -84,11 +86,11 @@ bool RB_peek(ring_buffer *ring_buff, uint32_t *out_index);
  *  params:
  *  	ring_buff_arr - A pointer to an arr of RB's.
  *      num_of_rings - The ring_buff arr size.
- *      out_index - A pointer to the variable that receives the index of the arr that contains the oldest data.
+ *      out_oldest_msg - A pointer to the variable that receives the data.
  *
  *	this function is not thread safe. for safe multithreaded usues must be call under lock.
  */
-bool RB_extract_first(ring_buffer *ring_buff, uint64_t num_of_rings, uint64_t *out_cli_index);
+bool RB_extract_first(ring_buffer *ring_buff, uint64_t num_of_rings, msg *out_oldest_msg);
 /*
  *  RB_is_full
  *  returns whether the reing fuffer is full or not.

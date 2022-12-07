@@ -13,13 +13,19 @@
 #define MAX_DATA_BUFFER_LEN (0x1000)
 #define MAX_NUMBER_OF_CLIENTS (0x10)
 // our definitions
-#define CONN_REQ ("get id")
+#define CONN_REQ_MSG ("get id")
+#define CREATED_SHMEM_MSG ("created shmem")
+#define ALL_SHMEM_CONNCETED_MSG ("all cli created shmem seccesfully")
+
 #define GET_RAND_PORT (0)
 #define GET_PRIVATE_ID (0)
 #define CLI_ARR_SIZE(n) (sizeof(END_POINT) * n)
 #define PACKET_MAX_SIZE (0x400)
-#define RING_BUFFER_SIZE (0x3000)
+#define RING_BUFFER_SIZE (0x4000)
 #define NO_FLAGS (0)
+#define ID_LENGTH (3)
+#define MEM_SIZE (sizeof(ring_buffer))
+
 
 uint64_t g_num_of_cli;
 uint64_t SOCKFD;
@@ -44,6 +50,7 @@ typedef struct END_POINT
 	uint64_t id;
 	FTN_IPV4_ADDR ip;
 	uint64_t port;
+	void* shmem_addr;
 } END_POINT;
 
 extern END_POINT CLIENTS[];
@@ -54,6 +61,7 @@ typedef struct msg
     char msg[MAX_DATA_BUFFER_LEN];
     uint64_t len;
     uint64_t seq_num;
+	uint64_t src;
 } msg;
 
 typedef struct msg_log
@@ -64,13 +72,14 @@ typedef struct msg_log
 	uint64_t src;
 	uint64_t target;
 } msg_log;
+
 extern msg_log logg_rcv[];
 extern uint64_t lgr_rcv_count;
 
 extern msg_log logg_snt[];
 extern uint64_t lgr_snt_count;
 
-extern bool print_log(msg_log* logg, int len);
+extern bool print_log(msg_log* logg, uint64_t len);
 void add_pkt_log(bool is_send, void *data_buffer, uint64_t len, uint64_t src, uint64_t dest);
 void DumpHex(const void* data, size_t size);
 
