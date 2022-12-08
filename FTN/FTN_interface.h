@@ -21,14 +21,15 @@
 #define GET_PRIVATE_ID (0)
 #define CLI_ARR_SIZE(n) (sizeof(END_POINT) * n)
 #define PACKET_MAX_SIZE (0x400)
-#define RING_BUFFER_SIZE (0x4000)
+#define RING_BUFFER_SIZE (0x400)
 #define NO_FLAGS (0)
 #define ID_LENGTH (3)
 #define MEM_SIZE (sizeof(ring_buffer))
 
 
-uint64_t g_num_of_cli;
-uint64_t SOCKFD;
+extern uint64_t g_num_of_cli;
+extern uint64_t g_my_id;
+extern uint64_t g_sockfd;
 /*
  * the address id 0 is reserved for broadcast
  * server id is 1
@@ -73,6 +74,8 @@ typedef struct msg_log
 	uint64_t target;
 } msg_log;
 
+/*
+LOG uses
 extern msg_log logg_rcv[];
 extern uint64_t lgr_rcv_count;
 
@@ -82,6 +85,7 @@ extern uint64_t lgr_snt_count;
 extern bool print_log(msg_log* logg, uint64_t len);
 void add_pkt_log(bool is_send, void *data_buffer, uint64_t len, uint64_t src, uint64_t dest);
 void DumpHex(const void* data, size_t size);
+*/
 
 
 /*

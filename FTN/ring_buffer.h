@@ -3,13 +3,6 @@
 
 #include "./FTN_interface.h"
 
-// typedef struct msg
-// {
-//     char msg[MAX_DATA_BUFFER_LEN];
-//     uint64_t len;
-//     uint64_t seq_num;
-// } msg;
-
 typedef struct ring_buffer
 {
     msg msgs[RING_BUFFER_SIZE];
@@ -90,7 +83,7 @@ bool RB_peek(ring_buffer *ring_buff, uint32_t *out_index);
  *
  *	this function is not thread safe. for safe multithreaded usues must be call under lock.
  */
-bool RB_extract_first(ring_buffer *ring_buff, uint64_t num_of_rings, msg *out_oldest_msg);
+bool RB_extract_first(ring_buffer *ring_buff, uint64_t num_of_rings, msg *out_oldest_msg, uint64_t *opt_out_source_address_id);
 /*
  *  RB_is_full
  *  returns whether the reing fuffer is full or not.
