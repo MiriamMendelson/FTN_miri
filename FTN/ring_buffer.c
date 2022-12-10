@@ -35,9 +35,9 @@ bool RB_insert(ring_buffer *ring_buff, msg *new_msg)
         actual_count = __atomic_fetch_sub(&ring_buff->len_in_prograss, 1, __ATOMIC_SEQ_CST);
         return 0;
     }
-    index_to_write = __atomic_exchange_n(&(ring_buff->tail_in_prograss), (ring_buff->tail_in_prograss + 1) % RING_BUFFER_SIZE, __ATOMIC_SEQ_CST);
-    memcpy(&(ring_buff->msgs[index_to_write]), new_msg, sizeof(msg));
-    while ((ring_buff->tail) % RING_BUFFER_SIZE != index_to_write)
+    index_to_write = __atomic_fetch_add(&(ring_buff->tail_in_prograss), 1, __ATOMIC_SEQ_CST);
+    memcpy(&(ring_buff->msgs[(index_to_write % RING_BUFFER_SIZE)]), new_msg, sizeof(msg));
+    while ((ring_buff->tail) % RING_BUFFER_SIZE != (index_to_write % RING_BUFFER_SIZE))
         ;
     __atomic_exchange_n(&(ring_buff->tail), (ring_buff->tail + 1) % RING_BUFFER_SIZE, __ATOMIC_SEQ_CST);
     actual_count = __atomic_add_fetch(&ring_buff->count, 1, __ATOMIC_SEQ_CST);
@@ -53,9 +53,9 @@ bool RB_extract(ring_buffer *ring_buff, msg *out_msg)
         printf("RB_extract no data\n");
         return 0;
     }
-    index_to_read = __atomic_exchange_n(&(ring_buff->head_in_prograss), (ring_buff->head_in_prograss + 1) % RING_BUFFER_SIZE, __ATOMIC_SEQ_CST);
-    memcpy(out_msg, &ring_buff->msgs[index_to_read], sizeof(msg));
-    while ((ring_buff->head) % RING_BUFFER_SIZE != index_to_read)
+    index_to_read = __atomic_fetch_add(&(ring_buff->head_in_prograss), 1, __ATOMIC_SEQ_CST);
+    memcpy(out_msg, &ring_buff->msgs[(index_to_read % RING_BUFFER_SIZE)], sizeof(msg));
+    while ((ring_buff->head) % RING_BUFFER_SIZE != (index_to_read % RING_BUFFER_SIZE))
     {
     }
     __atomic_exchange_n(&(ring_buff->head), (ring_buff->head + 1) % RING_BUFFER_SIZE, __ATOMIC_SEQ_CST);

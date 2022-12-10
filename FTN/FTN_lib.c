@@ -202,11 +202,11 @@ FTN_RET_VAL send_pkt_via_shm(void *data_buffer, uint64_t data_buffer_size, uint6
 	new_msg.len = data_buffer_size;
 	memcpy(new_msg.msg, data_buffer, data_buffer_size);
 
-	while (RB_is_full((ring_buffer *)CLIENTS[dest].shmem_addr))
-		;
-	if (!RB_insert((ring_buffer *)CLIENTS[dest].shmem_addr, &new_msg))
+	// while (RB_is_full((ring_buffer *)CLIENTS[dest].shmem_addr))
+	// 	;
+	while (!RB_insert((ring_buffer *)CLIENTS[dest].shmem_addr, &new_msg))
 	{
-		printf("couldn't sent data using shmem...\n");
+		// printf("couldn't sent data using shmem...\n");
 	}
 
 	return FTN_ERROR_SUCCESS;
