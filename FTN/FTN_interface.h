@@ -1,21 +1,35 @@
-
-#include <stdint.h>
-#include <stdbool.h>
-#include "FTN_common.h"
-
 #ifndef __FTN_LIB_INTERFACE_H__
 #define __FTN_LIB_INTERFACE_H__
+
+#include "FTN_common.h"
+
 
 /*
  *  FTN - fast transport network
  *  library interface file
  */
 
-
-//FTN consts
+// FTN consts
 #define MAX_DATA_BUFFER_LEN (0x1000)
 #define MAX_NUMBER_OF_CLIENTS (0x10)
+// our definitions
+#define CONN_REQ_MSG ("get id")
+#define CREATED_SHMEM_MSG ("created shmem")
+#define ALL_SHMEM_CONNCETED_MSG ("all cli created shmem seccesfully")
 
+#define GET_RAND_PORT (0)
+#define GET_PRIVATE_ID (0)
+#define CLI_ARR_SIZE(n) (sizeof(END_POINT) * n)
+#define PACKET_MAX_SIZE (0x400)
+#define RING_BUFFER_SIZE (0x400)
+#define NO_FLAGS (0)
+#define ID_LENGTH (3)
+#define MEM_SIZE (sizeof(ring_buffer))
+
+
+extern uint64_t g_num_of_cli;
+extern uint64_t g_my_id;
+extern uint64_t g_sockfd;
 /*
  * the address id 0 is reserved for broadcast
  * server id is 1
@@ -31,6 +45,48 @@ typedef struct FTN_IPV4_ADDR
 {
 	uint8_t ip_addr[4];
 } FTN_IPV4_ADDR;
+
+typedef struct END_POINT
+{
+	uint64_t id;
+	FTN_IPV4_ADDR ip;
+	uint64_t port;
+	void* shmem_addr;
+} END_POINT;
+
+extern END_POINT CLIENTS[];
+
+
+typedef struct msg
+{
+    char msg[MAX_DATA_BUFFER_LEN];
+    uint64_t len;
+    uint64_t seq_num;
+	uint64_t src;
+} msg;
+
+typedef struct msg_log
+{
+    char msg[MAX_DATA_BUFFER_LEN];
+    uint64_t len;
+    uint64_t seq_num;
+	uint64_t src;
+	uint64_t target;
+} msg_log;
+
+/*
+LOG uses
+extern msg_log logg_rcv[];
+extern uint64_t lgr_rcv_count;
+
+extern msg_log logg_snt[];
+extern uint64_t lgr_snt_count;
+
+extern bool print_log(msg_log* logg, uint64_t len);
+void add_pkt_log(bool is_send, void *data_buffer, uint64_t len, uint64_t src, uint64_t dest);
+void DumpHex(const void* data, size_t size);
+*/
+
 
 /*
  *  FTN_server_init
@@ -55,7 +111,7 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_netwo
  *	this function shuld block and not return until all other clients will be connected and infrastructure is up and running!
  *	on success return FTN_ERROR_SUCCESS
  */
-FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint64_t * out_my_address);
+FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint64_t *out_my_address);
 
 /*
  *  FTN_recv
@@ -77,7 +133,7 @@ FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint6
  *
  *	on success return FTN_ERROR_SUCCESS
  */
-FTN_RET_VAL FTN_recv(void * data_buffer, uint64_t data_buffer_size, uint64_t * out_pkt_len, uint64_t source_address_id, uint64_t * opt_out_source_address_id, bool async);
+FTN_RET_VAL FTN_recv(void *data_buffer, uint64_t data_buffer_size, uint64_t *out_pkt_len, uint64_t source_address_id, uint64_t *opt_out_source_address_id, bool async);
 
 /*
  *  FTN_send
@@ -90,7 +146,7 @@ FTN_RET_VAL FTN_recv(void * data_buffer, uint64_t data_buffer_size, uint64_t * o
 						if set to other number: send to this client
  *
  *	NOTES:
- *		1. this function block only is there is no room to queue this msg
+ *		1. this function block only if there is no room to queue this msg
  *
  *  on success return FTN_ERROR_SUCCESS
  */
