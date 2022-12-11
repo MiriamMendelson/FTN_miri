@@ -33,7 +33,7 @@ FTN_RET_VAL try_open_exist_shmem(uint64_t id, void **out_shmem_adrr)
 	char file_name[ID_LENGTH] = {0};
 	sprintf(file_name, "%ld", id);
 
-	int fd = shm_open(file_name, O_RDWR | O_EXCL | O_TRUNC, 0644);
+	int fd = shm_open(file_name, O_RDWR | O_EXCL, 0644);
 	if (fd < 0)
 	{
 		printf("shm_open neighbor not found\n");

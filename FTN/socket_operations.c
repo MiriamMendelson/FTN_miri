@@ -67,6 +67,7 @@ FTN_RET_VAL send_pkt_to_cli(void *data_buffer, uint64_t data_buffer_size, uint64
 
     if (!init_addr(&dest_client, CLIENTS[sento_index].port, CLIENTS[sento_index].ip.ip_addr))
     {
+        printf("can't init addr to cli\n");
         return FTN_ERROR_UNKNONE;
     }
 
@@ -80,14 +81,14 @@ FTN_RET_VAL send_pkt_to_cli(void *data_buffer, uint64_t data_buffer_size, uint64
         }
         bytes_got_send += send_to_rslt;
     }
-    /* 
-    DBG'n
-    printf("have send data via UDP to cli: %ld, in port: %ld\n", sento_index, CLIENTS[sento_index].port);
-    if(CLIENTS[GET_PRIVATE_ID].id == 2 && sento_index){
-        printf("%ld ------------------>\n", miris_int++);
-        DumpHex(data_buffer, data_buffer_size);
-    }
-    add_pkt_log(true, data_buffer, data_buffer_size, CLIENTS[GET_PRIVATE_ID].id, sento_index);
-    */
+    
+    // DBG'n
+    // printf("have send data via UDP to cli: %ld, in port: %ld\n", sento_index, CLIENTS[sento_index].port);
+    // if(g_my_id == 2){
+    //     printf("%ld ------------------>\n", miris_int++);
+    //     DumpHex(data_buffer, data_buffer_size);
+    // }
+    // add_pkt_log(true, data_buffer, data_buffer_size, CLIENTS[GET_PRIVATE_ID].id, sento_index);
+    
     return FTN_ERROR_SUCCESS;
 }

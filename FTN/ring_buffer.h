@@ -9,7 +9,6 @@ typedef struct ring_buffer
     int64_t head;
     int64_t tail;
     uint64_t count;
-    pthread_mutex_t shmem_mutex;
     uint64_t head_in_prograss;
     uint64_t tail_in_prograss;
     int64_t len_in_prograss;

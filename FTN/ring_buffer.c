@@ -8,8 +8,6 @@ bool init_ring_buffer(ring_buffer *ring_buff)
     ring_buff->head_in_prograss = 0;
     ring_buff->tail_in_prograss = 0;
     ring_buff->len_in_prograss = 0;
-
-    pthread_mutex_init(&(ring_buff->shmem_mutex), NULL);
     return true;
 }
 
@@ -18,7 +16,7 @@ bool init_ringbuffer_arr(ring_buffer *ring_buff_arr, uint64_t len)
     uint64_t x = 0;
     for (x = SERVER_ADDRESS_ID; x < len; x++)
     {
-        if (true != init_ring_buffer(&ring_buff_arr[x]))
+        if (!init_ring_buffer(&ring_buff_arr[x]))
         {
             return false;
         }
@@ -39,8 +37,8 @@ bool RB_insert(ring_buffer *ring_buff, msg *new_msg)
     memcpy(&(ring_buff->msgs[(index_to_write % RING_BUFFER_SIZE)]), new_msg, sizeof(msg));
     while ((ring_buff->tail) % RING_BUFFER_SIZE != (index_to_write % RING_BUFFER_SIZE))
         ;
-    __atomic_exchange_n(&(ring_buff->tail), (ring_buff->tail + 1) % RING_BUFFER_SIZE, __ATOMIC_SEQ_CST);
-    actual_count = __atomic_add_fetch(&ring_buff->count, 1, __ATOMIC_SEQ_CST);
+    __atomic_fetch_add(&(ring_buff->tail), 1, __ATOMIC_SEQ_CST);
+    __atomic_add_fetch(&(ring_buff->count), 1, __ATOMIC_SEQ_CST);
     return 1;
 }
 bool RB_extract(ring_buffer *ring_buff, msg *out_msg)
@@ -50,7 +48,6 @@ bool RB_extract(ring_buffer *ring_buff, msg *out_msg)
     if (actual_count < 0)
     {
         __atomic_add_fetch(&ring_buff->count, 1, __ATOMIC_SEQ_CST);
-        printf("RB_extract no data\n");
         return 0;
     }
     index_to_read = __atomic_fetch_add(&(ring_buff->head_in_prograss), 1, __ATOMIC_SEQ_CST);
@@ -58,8 +55,8 @@ bool RB_extract(ring_buffer *ring_buff, msg *out_msg)
     while ((ring_buff->head) % RING_BUFFER_SIZE != (index_to_read % RING_BUFFER_SIZE))
     {
     }
-    __atomic_exchange_n(&(ring_buff->head), (ring_buff->head + 1) % RING_BUFFER_SIZE, __ATOMIC_SEQ_CST);
-    __atomic_sub_fetch(&ring_buff->len_in_prograss, 1, __ATOMIC_SEQ_CST);
+    __atomic_fetch_add(&(ring_buff->head), 1, __ATOMIC_SEQ_CST);
+    __atomic_sub_fetch(&(ring_buff->len_in_prograss), 1, __ATOMIC_SEQ_CST);
     return 1;
 }
 
@@ -128,7 +125,7 @@ bool RB_peek(ring_buffer *ring_buff, uint32_t *out_index)
         return false;
     }
 
-    *out_index = ring_buff->head;
+    *out_index = ring_buff->head % RING_BUFFER_SIZE;
 
     return true;
 }

@@ -3,7 +3,6 @@
 #include "shmem_operations.c"
 
 #define min(a, b) ((a < b) ? (a) : (b))
-#define verify_succ(x) ((x != 0) ? exit(FTN_ERROR_MUTEX_ERROR) : 1)
 
 ring_buffer ring_buffs[MAX_NUMBER_OF_CLIENTS] = {};
 END_POINT CLIENTS[MAX_NUMBER_OF_CLIENTS] = {};
@@ -13,17 +12,15 @@ pthread_t rcv_handler_thread;
 pthread_t shmem_handler_thread;
 bool run_mood = false;
 bool shmem_thread_on = false;
-pthread_mutex_t lock;
 uint64_t seq_counter = 0;
 uint64_t g_my_id = 0;
 uint64_t g_num_of_cli = 0;
 uint64_t g_sockfd = 0;
-// will be used in shmem
 int64_t g_fd_shmem = 0;
 void *g_shmem_adrr = NULL;
 ring_buffer *g_shmem_buffer = NULL;
 
-/* 
+/*
 LOG uses
 void DumpHex(const void *data, size_t size)
 {
@@ -117,9 +114,8 @@ void add_pkt_log(bool is_send, void *data_buffer, uint64_t len, uint64_t src, ui
 }
 */
 
-void *manage_insertion_rings(void *param)
+void *manage_insertion_rings()
 {
-	UNUSED_PARAM(param);
 	uint64_t i = 0;
 	run_mood = true; // thread stated- we're good to go!
 	int64_t ret_val = 0;
@@ -133,6 +129,7 @@ void *manage_insertion_rings(void *param)
 		ret_val = recvfrom(g_sockfd, &new_msg.msg, MAX_DATA_BUFFER_LEN, NO_FLAGS, (struct sockaddr *)&from, &sockaddr_len);
 		if (0 >= ret_val)
 		{
+			printf("recvfrom error\n");
 			return (void *)FTN_ERROR_NETWORK_FAILURE;
 		}
 		if (ret_val > PACKET_MAX_SIZE)
@@ -141,73 +138,43 @@ void *manage_insertion_rings(void *param)
 			return (void *)FTN_ERROR_DATA_SENT_IS_TOO_LONG;
 		}
 		actual_len = ret_val;
+		new_msg.len = actual_len;
+		seq = __atomic_fetch_add(&seq_counter, 1, __ATOMIC_SEQ_CST);
+		new_msg.seq_num = seq;
 
-		verify_succ(pthread_mutex_lock(&lock)); // wait on lock before referencing shared DS
 		for (i = SERVER_ADDRESS_ID; i < g_num_of_cli; i++)
 		{
 			if (is_same_addr(&from, &(CLIENTS[i])))
 			{
-				while (RB_is_full(&ring_buffs[i]))
-				{
-					verify_succ(pthread_mutex_unlock(&lock)); // releasing & owning mutex while checking DS
-					verify_succ(pthread_mutex_lock(&lock));
-				}
-				seq = __atomic_fetch_add(&seq_counter, 1, __ATOMIC_SEQ_CST);
-				new_msg.len = actual_len;
 				new_msg.src = i;
-				new_msg.seq_num = seq;
-				if (true != RB_insert(&ring_buffs[i], &new_msg))
-				{
-					return (void *)FTN_ERROR_DATA_SENT_IS_TOO_LONG;
-				}
-				verify_succ(pthread_mutex_unlock(&lock)); // release mutex
+				while (!RB_insert(&ring_buffs[i], &new_msg)){}
 				break;
 			}
 		}
 	}
 	return NULL;
 }
-void *manage_shmem_insertion_rings(void *param)
+void *manage_shmem_insertion_rings()
 {
-	UNUSED_PARAM(param);
 	shmem_thread_on = true;
 	msg new_msg = {0};
 
 	while (1)
 	{
-		while (RB_empty(g_shmem_buffer))
-			;
-
-		if (!RB_extract(g_shmem_buffer, &new_msg))
-		{
-			printf("thread couldn't extract data\n");
-		}
+		while (!RB_extract(g_shmem_buffer, &new_msg)){}
 		new_msg.seq_num = __atomic_fetch_add(&seq_counter, 1, __ATOMIC_SEQ_CST);
-
-		while (RB_is_full(&ring_buffs[new_msg.src]))
-			;
-
-		if (!RB_insert(&ring_buffs[new_msg.src], &new_msg))
-		{
-			printf("thread couldn't insert data\n");
-		}
+		while (!RB_insert(&ring_buffs[new_msg.src], &new_msg)){}
 		// add_pkt_log(true, new_msg.msg, new_msg.len, new_msg.src, g_my_id);
 	}
 }
 FTN_RET_VAL send_pkt_via_shm(void *data_buffer, uint64_t data_buffer_size, uint64_t dest)
-
 {
 	msg new_msg = {0};
 	new_msg.src = g_my_id;
 	new_msg.len = data_buffer_size;
 	memcpy(new_msg.msg, data_buffer, data_buffer_size);
 
-	// while (RB_is_full((ring_buffer *)CLIENTS[dest].shmem_addr))
-	// 	;
-	while (!RB_insert((ring_buffer *)CLIENTS[dest].shmem_addr, &new_msg))
-	{
-		// printf("couldn't sent data using shmem...\n");
-	}
+	while (!RB_insert((ring_buffer *)CLIENTS[dest].shmem_addr, &new_msg)){}
 
 	return FTN_ERROR_SUCCESS;
 }
@@ -255,7 +222,6 @@ bool store_endpoint(int index, struct sockaddr_in *end_point)
 bool start_threads()
 {
 	bool ret_val = true;
-	verify_succ(pthread_mutex_init(&lock, NULL)); // init mutex- before it gets lock in the thread func
 
 	ret_val &= (pthread_create(&rcv_handler_thread, NULL,
 							   manage_insertion_rings, NULL) == 0);
@@ -323,7 +289,6 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_netwo
 	g_shmem_buffer = (ring_buffer *)g_shmem_adrr;
 
 	init_ring_buffer(g_shmem_buffer);
-	// printf("created shmem succesfully! in addr: %p, FD: %ld\n", g_shmem_adrr, g_fd_shmem);
 
 	//-----> make sure all cli's created shmem :-D
 	for (x = FIRST_CLIENT_ADDRESS_ID; x < g_num_of_cli; x++)
@@ -346,11 +311,13 @@ FTN_RET_VAL FTN_server_init(uint64_t server_port, uint64_t num_of_nodes_in_netwo
 	{
 		if (send_pkt_to_cli(ALL_SHMEM_CONNCETED_MSG, sizeof(ALL_SHMEM_CONNCETED_MSG), x) == FTN_ERROR_NETWORK_FAILURE)
 		{
+			printf("error on sending to cli\n");
 			return FTN_ERROR_NETWORK_FAILURE;
 		}
 	}
 	if (!find_local_end_points())
 	{
+		printf("error while finding local shmm's\n");
 		return FTN_ERROR_SHMEM_FAILURE;
 	}
 
@@ -399,7 +366,6 @@ FTN_RET_VAL FTN_client_init(FTN_IPV4_ADDR server_ip, uint64_t server_port, uint6
 	}
 	g_shmem_buffer = (ring_buffer *)g_shmem_adrr;
 	init_ring_buffer(g_shmem_buffer);
-	// printf("created shmem succesfully! in addr: %p, FD: %ld\n", g_shmem_adrr, g_fd_shmem);
 
 	//------> tell srv i have created shmem
 	if (send_pkt_to_cli(CREATED_SHMEM_MSG, sizeof(CREATED_SHMEM_MSG), SERVER_ADDRESS_ID) == FTN_ERROR_NETWORK_FAILURE)
@@ -452,18 +418,16 @@ FTN_RET_VAL FTN_recv(void *data_buffer, uint64_t data_buffer_size, uint64_t *out
 	{
 		if (RB_empty(&ring_buffs[source_address_id]) && async) // no msgs & no blocking
 		{
-			pthread_mutex_unlock(&lock);
 			*out_pkt_len = 0;
 			opt_out_source_address_id = NULL;
+			printf("empty and asyc- exiting succesfuly\n");
 			return FTN_ERROR_SUCCESS;
 		}
-		while (RB_empty(&ring_buffs[source_address_id]))
-			; // blocking is on
 
-		ret_val = RB_extract(&ring_buffs[source_address_id], &extract_msg); // done waiting- getting the new msg
-		if (ret_val)
-		{
-			copy_data_to_cli(data_buffer, data_buffer_size, &extract_msg, out_pkt_len);
+		while(!RB_extract(&ring_buffs[source_address_id], &extract_msg)){} // blocking is on
+		
+		ret_val = copy_data_to_cli(data_buffer, data_buffer_size, &extract_msg, out_pkt_len);// done waiting- getting the new msg
+		if (ret_val){
 			*opt_out_source_address_id = source_address_id;
 		}
 	}
@@ -481,6 +445,7 @@ FTN_RET_VAL FTN_recv(void *data_buffer, uint64_t data_buffer_size, uint64_t *out
 		{
 			out_pkt_len = 0;
 			opt_out_source_address_id = NULL;
+			printf("no data- have a nice day!\n");
 		}
 	}
 	// add_pkt_log(false, extract_msg.msg, extract_msg.len, extract_msg.src, g_my_id);
@@ -507,8 +472,10 @@ FTN_RET_VAL FTN_send(void *data_buffer, uint64_t data_buffer_size, uint64_t dest
 			{
 				send_pkt_via_shm(data_buffer, data_buffer_size, x);
 			}
-			else if (send_pkt_to_cli(data_buffer, data_buffer_size, x) == FTN_ERROR_NETWORK_FAILURE) // send using UDP
+			else //send by UDP
+			if (send_pkt_to_cli(data_buffer, data_buffer_size, x) == FTN_ERROR_NETWORK_FAILURE) // send using UDP
 			{
+				printf("error on sending to cli\n");
 				return FTN_ERROR_NETWORK_FAILURE;
 			}
 		}
@@ -519,8 +486,10 @@ FTN_RET_VAL FTN_send(void *data_buffer, uint64_t data_buffer_size, uint64_t dest
 		{
 			send_pkt_via_shm(data_buffer, data_buffer_size, dest_address_id);
 		}
-		else if (send_pkt_to_cli(data_buffer, data_buffer_size, dest_address_id) == FTN_ERROR_NETWORK_FAILURE)
+		else //send by UDP
+		if (send_pkt_to_cli(data_buffer, data_buffer_size, dest_address_id) == FTN_ERROR_NETWORK_FAILURE)
 		{
+			printf("error on sending to cli\n");
 			return FTN_ERROR_NETWORK_FAILURE;
 		}
 	}
